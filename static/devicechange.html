@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<link rel="stylesheet" href="./css/devicechange.css">
+	<script src="./vue.js"></script>
+	<style>
+		 [v-cloak]{
+            display: none;
+        }
+	</style>
+</head>
+<body>
+	<div class="device-content" :style="{height:winHeight + 'px'}" id="deviceContent">
+		 <!-- 下载上一张或下一张地图 -->
+        <div class="loading-content" v-show="loading">
+                     
+        </div>
+
+        <div class="loading-content load-other" v-show="loading" v-cloak>
+             <p>{{downLoadPercent}} %</p>
+             <p>正在为您下载 {{downLoadName}}，请稍候...</p>
+        </div>
+	</div>  
+    
+    <script>
+    	var $vm = new Vue({
+    		el:'#deviceContent',
+    		data:{
+               winWidth:window.innerWidth,
+               winHeight:window.innerHeight,
+               downLoadPercent:0,
+               loading:true,
+               downLoadName:''
+    		},
+    		methods:{
+               // 先检查是否下载过，如果下载过就直接取
+               isDownLoaded(_id,type,fn) {
+                  //异步获取下载
+                  GetDownLoadedResources(_id+'',localStorage.getItem('userId'),(hasDownLoadedContent)=>{
+                      hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+
+                      if(hasDownLoadedContent.length == 0) {
+                        //如果未下载，就下载
+                        fn();
+                        return;
+                      }
+                      
+                      //如果已下载就加载本地
+                      var item = hasDownLoadedContent[0];
+
+                      switch (type) {
+                        case 2:
+                               ApiTransfer('get','/resource/detail',JSON.stringify({resourceid:_id,userid:localStorage.getItem('userId')}),(resFromWinF)=>{
+                                  resFromWinF = JSON.parse(resFromWinF);
+
+                                  SaveArgument('sectionId='+_id+'&secret='+resFromWinF.Data.Secret+'&bookSrc='+item.FilePath+'&parentId='+resFromWinF.Data.ParentId)
+                                  loadForm('/static/reader.html','图书阅读',item.Title,true);
+                                  CloseForm();
+                               })
+                          break;
+                        case 3:
+                               console.log('imgSrc='+item.FilePath+'&resourceid='+_id)
+                                SaveArgument('imgSrc='+item.FilePath+'&resourceid='+_id);
+                                loadForm('/static/map.html','地图阅读',item.Title,true);
+                                CloseForm();
+                          break;  
+                        default:
+                          // statements_def
+                          break;
+                      }
+
+                      
+                  })
+               }, 
+
+               downloadSection(sectionid,url) {
+
+                   this.isDownLoaded(sectionid,2,()=>{
+                      //根据sectionid,获取章节详情
+                       var sectionData = {
+                           resourceid:sectionid,
+                           userid:localStorage.getItem('userId')
+                       }
+
+                       ApiTransfer('get','/resource/detail',JSON.stringify(sectionData),(resFromWinF)=>{
+                           console.log(resFromWinF)
+                           resFromWinF = JSON.parse(resFromWinF);
+                           var item = resFromWinF.Data;
+                           this.downLoadName = item.Title;
+
+                           var downdata = {
+                                  fileid:item.DefaultFileId,
+                                  isPC:true,
+                                  type:2,
+                                  userid:localStorage.getItem('userId'),
+                                  resourceid:item.Id,
+                                  source:item.Source,
+                                  title:item.Title,
+                               }
+
+
+                             DownLoadProgress('get','/file/stream',JSON.stringify(downdata),(progress,nativeUrl,err)=>{
+                                  
+                                  if(err) {
+                                        OpenForm(480,500,'/index.html#/userCenter','个人信息');
+                                        localStorage.setItem('fromWhere',3);
+                                        CloseForm();
+                                  }else {
+                                      item.nativeUrl = nativeUrl;
+                                      //获取下载进度
+                                      if (Math.floor(progress) >= 100) {
+                                          this.downLoadPercent = 100;
+
+                                          SaveArgument('sectionId='+sectionid+'&secret='+item.Secret+'&bookSrc='+item.nativeUrl+'&parentId='+item.ParentId)
+                                          loadForm('/static/reader.html','图书阅读',item.Title,true);
+
+                                          CloseForm();
+                                      } else {
+                                          this.downLoadPercent = Math.floor(progress);
+                                      }
+                                  }
+                            }); 
+                       })
+                   });
+               },
+
+
+
+               downloadMap(mapId,url) {
+                   this.isDownLoaded(mapId,3,()=>{
+                       var mapData = {
+                           resourceid:mapId,
+                           userid:localStorage.getItem('userId')
+                       }
+                       ApiTransfer('get','/resource/detail',JSON.stringify(mapData),(resFromWinF)=>{
+                           resFromWinF = JSON.parse(resFromWinF);
+                           var item = resFromWinF.Data;
+                           this.downLoadName = item.Title;
+
+                           var downdata = {
+                                fileid:item.DefaultFileId,
+                                isPC:true,
+                                type:item.Type,
+                                userid:localStorage.getItem('userId'),
+                                resourceid:item.Id,
+                                source:item.Source,
+                                title:item.Title,
+                             }
+
+                          DownLoadProgress('get','/file/stream',JSON.stringify(downdata),(progress,nativeUrl,err)=>{
+                                  
+                                  if(err) {
+                                        OpenForm(480,500,'/index.html#/userCenter','个人信息');
+                                        localStorage.setItem('fromWhere',3);
+                                        CloseForm();
+                                  }else {
+                                      item.nativeUrl = nativeUrl;
+                                      //获取下载进度
+                                      if (Math.floor(progress) >= 100) {
+                                          this.downLoadPercent = 100;
+                                             SaveArgument('imgSrc='+nativeUrl+'&resourceid='+mapId);
+                                             loadForm('/static/map.html','地图阅读',item.Title,true);
+                                             CloseForm();
+                                      } else {
+                                          this.downLoadPercent = Math.floor(progress);
+                                      }
+                                  }
+                           }); 
+
+                       })
+                   })
+
+               }
+    		},
+        mounted() {
+           // ShowDevTools(); 
+        }
+    	})
+    </script>
+	<script>
+		    //根据设备切换的数据进行渲染
+	    function changeDevice() {
+            var data = GetArgument();
+                data = JSON.parse(data);
+                console.log(data);
+	    	// data = {
+	    	// 	    "ResourceId":24971,
+	    	//         "FileId":24975,
+	    	//         "UserId":186659,
+	    	//         "Position":100,
+	    	//         "Url":"http://api.borderland.kingchannels.cn:8100/files/upload/129/20170502203753582_1.epub",
+	    	//         "SourceDeviceId":100,
+	    	//         "TargetDeviceId":101,
+	    	//         "State":1,
+	    	//         "ResourceType":1,
+	    	//         "Tag":""
+	    	//       }
+
+    	    switch (data.ResourceType) {
+    	      	case 2:
+    	      		//此时是图书
+    	      		$vm.downloadSection(data.ResourceId,data.Url);
+    	      		break;
+    	      	case 3:
+    	      		$vm.downloadMap(data.ResourceId,data.Url);
+    	      		break;	
+    	      	default:
+    	      		
+    	      		break;
+    	    }     
+	        // console.log(data);
+	    }
+
+
+	    changeDevice();
+
+
+     document.addEventListener('click', ()=>{
+         CloseMenueStrip();
+     }, false)
+
+	</script>
+</body>
+</html>

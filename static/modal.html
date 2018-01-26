@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>多维边疆</title>
+    <link rel="stylesheet" type="text/css" href="./css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="./css/modal.css">
+    <link rel="stylesheet" type="text/css" href="./css/bootstrapValidator.min.css">
+    <link rel="stylesheet" type="text/css" href="./css/sweetalert.css">
+    <script src="js/localStorage.js"></script>
+  </head> 
+  <body>
+	 <!-- <input type="button"  value="登录" onclick="selectedModal(1)"> 
+	 <input type="button"  value="纪年换算" onclick="selectedModal(2)">
+	 <input type="button"  value="修改个人信息" onclick="selectedModal(3)"> -->
+
+
+
+    <!-- 登录注册密码模态框 -->
+   <div class="modal" tabindex="-1" role="dialog" id="loginReg" oncontextmenu="return false">
+	  <div class="modal-dialog" role="document" style="width: 430px;">
+	    <div class="modal-content" style="width: 480px;height: 500px;margin-top: -10px;margin-left: -30px;">
+	      <div class="modal-header">
+	       <!--  <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button> -->
+	        <p id="title1">
+	        	<span class="active">登录</span>
+	        	<span style="margin-left: -5px;">注册</span>
+	        </p>
+	        <p id="title2">
+	        	<span id="returnPage"></span>
+	        	<span class="forgetTitle">忘记密码</span>
+	        </p>
+	         <!-- <p id="title3">修改密码1</p> -->
+<!-- 	         <h3 id="title4" style="text-align: center;">切换账户</h3> -->
+	      </div>
+	      <div class="modal-body">
+	      		<div id="login">
+	      			<form id='loginForm'>
+					  <div class="form-group">
+					    <input type="text" class="form-control" name="loginPhone" placeholder="手机号或邮箱" value="">
+					  </div>
+					  <div class="form-group">
+					    <input type="password" class="form-control" name="loginPass" placeholder="密码" value=""> 
+					  </div>
+					  <input type="submit" name="loginSublime" class="form-control add-border" value="登&nbsp;录">
+					</form>
+					<p class="forget"><span id="goForgetPSD">忘记密码</span></p>
+					<p style="text-align: center;margin-bottom: 15px;">
+			            <span>----</span>
+			            <span style="margin:0 5px;">快速登录</span>
+			            <span>----</span>
+			          </p>
+			          <div class="iconImg">
+			            <a href="http://demo.api.borderland.kingchannels.cn/ThirdPartyPassport/Authorize?id=wechat"><div class="png1"></div></a>
+			            <a href="http://demo.api.borderland.kingchannels.cn/ThirdPartyPassport/Authorize?id=weibo"><div class="png2"></div></a>
+			            <a href="http://demo.api.borderland.kingchannels.cn/ThirdPartyPassport/Authorize?id=qq"><div class="png3"></div></a>
+			          </div>
+			          <div class="loginSuccess" id="loginSuccess">
+			          		<img src="./images/注册成功.png" alt=""><span>登录成功！</span>
+			          </div>
+			          <div class="loginFail" id="loginFail">
+			          		<img src="./images/注册失败.png" alt=""><span></span>
+			          </div>
+	      		</div>
+	      		<div id="reg">
+	      			<form id="regForm" style="margin-bottom: 30px;">
+					  <div class="form-group" style="position: relative;">
+					    <input type="text" class="form-control" name="regPhone" placeholder="手机号或邮箱" id="regPhone">
+					    <input type="button" class="getCodeCSS" onclick="getCode($('#regPhone').val())" value="免费获取验证码" readonly>
+					  </div>
+					  <div class="form-group">
+					    <input type="text" class="form-control" name="regCode" placeholder="验证码">
+					  </div>
+					  <div class="form-group">
+					    <input type="password" class="form-control" name="regPass" placeholder="密码">
+					  </div>
+					  <div class="form-group">
+					    <input type="password" class="form-control" name="regPass1" placeholder="确认密码">
+					  </div>
+					   <div class="form-group">
+					    <input type="text" class="form-control" name="codeNumber" placeholder="激活码(非必填)">
+					  </div>
+					  <input type="submit" name="regSublime" class="form-control add-border" value="注&nbsp;册">
+					</form>
+					<p class="showWord" id="regShowWord">验证码已发到该手机/该邮箱，请查收</p>
+					<div class="loginSuccess" id="regSuccess">
+			          		<img src="./images/注册成功.png" alt=""><span>注册成功！</span>
+			          </div>
+			          <div class="loginFail" id="regFail">
+			          		<img src="./images/注册失败.png" alt=""><span></span>
+			          </div>
+	      		</div>
+	      		<div id="forgetPSD">
+	      			<form id="forgetForm" style="margin-bottom: 30px;">
+					  <div class="form-group">
+					    <input type="text" class="form-control" name="forgetPhone" placeholder="手机号或邮箱" id="forgetPhone">
+					    <input type="button" class="getCodeCSS" onclick="getCode1($('#forgetPhone').val(),2)" value="免费获取验证码" readonly>
+					  </div>
+					  <div class="form-group">
+					    <input type="text" class="form-control" name="forgetCode" placeholder="验证码" id="forgetCode">
+					  </div>
+					  <div class="form-group">
+					    <input type="password" class="form-control" name="forgetPass" placeholder="密码" id="forgetPass">
+					  </div>
+					  <div class="form-group"> 
+					    <input type="password" class="form-control" name="forgetPass1" placeholder="确认密码" id="forgetPass1">
+					  </div>
+					  <input type="submit" name="forgetSublime" class="form-control add-border" value="保&nbsp;存">
+					</form>
+					<p class="showWord" id="forgetShowWord">验证码已发到该手机/该邮箱，请查收</p>
+					<div class="loginSuccess" id="forgetSuccess">
+			          		<img src="./images/注册成功.png" alt=""><span>修改成功！</span>
+			          </div>
+			          <div class="loginFail" id="forgetFail">
+			          		<img src="./images/注册失败.png" alt=""><span></span>
+			          </div>
+	      		</div>
+	      		<div id="updatePSD">
+	      			<form id="updateForm" style="margin-bottom: 30px;">
+					  <div class="form-group">
+					    <input type="text" class="form-control" name="updatePhone" placeholder="手机号或邮箱" id="updatePhone">
+					    <input type="button" class="getCodeCSS" onclick="getCode1($('#updatePhone').val(),3)" value="免费获取验证码" readonly>
+					  </div>
+					  <div class="form-group">
+					    <input type="text" class="form-control" name="updateCode" placeholder="验证码" id="updateCode">
+					  </div>
+					  <div class="form-group">
+					    <input type="password" class="form-control" name="updatePass" placeholder="密码" id="updatePass">
+					  </div>
+					  <div class="form-group">
+					    <input type="password" class="form-control" name="updatePass1" placeholder="确认密码" id="updatePass1">
+					  </div>
+					  <input type="submit" name="updateSublime" class="form-control add-border" value="保&nbsp;存">
+					</form>
+					<p class="showWord" id="updateShowWord">验证码已发到该手机/该邮箱，请查收</p>
+					<div class="loginSuccess" id="updateSuccess">
+		          		<img src="./images/注册成功.png" alt=""><span>修改成功！</span>
+		            </div>
+		            <div class="loginFail" id="updateFail">
+		          		<img src="./images/注册失败.png" alt=""><span></span>
+		            </div>
+	      		</div>
+
+	      		<div id="exchangeUsers" style="position: relative;">
+	      			<div id="exchangeUsersCont" style="margin-bottom: 30px; ">     
+                        <div class="exchangeUsersContMen">
+                        	<p class="account-title">切换账户</p>
+                        	<div class="exchangeUsersCont">
+	                        	<p>当前账号</p>
+	                        	<div class="account-cur account-other">
+	                        		<img src="./images/个人中心.png" alt="">
+	                        		<span>用户1</span>
+	                        	</div>
+	                        	<p>其他账号</p>	
+	                        </div>
+                        </div>
+                        <div class="add-other-user">
+                            <span id="exchangeUserFail" style="float:left;display: none;justify-content:flex-start;align-items: center;width:66%"><img src="./images/注册失败.png" alt="">&nbsp;&nbsp;<span >密码错误！</span></span>
+                        	<button onclick="selectedModal(1,'',true)" style="float:right;background-color: #2b579a;border:0;color:white;font-size: 18px;">＋ 添加用户</button>
+                        </div>
+					</div>
+
+	      		</div>
+
+	      		<div id="checkUpdate">
+		      		<div id="checkUpdateCont" style="margin-bottom: 30px;">     
+	                        <div class="exchangeUsersContMen" style="display: flex;justify-content: center;align-items: center;flex-direction: column;">
+	                        	<p>当前版本 <span id="curVersion" style="color:#5980b8;cursor:default"></span></p>
+	                        	<p>最新版本 <span id="newVersion" style="color:red;cursor:default"></span></p>
+	                        	<button class="go-update primary" id="goUpdate" style="background-color: #2b579a"></button>
+	                        	<p style="color:#808080;font-size: 12px;width: 328px" id="progressP">多维边疆正在下载升级文件,请稍后...</p>
+	                        	<div class="update-progress" id="updateProgress">
+	                        		<div class="progress-cont" id="progressCont"></div>
+	                        	</div>
+	                        	<span id="progressText" style="color:#2a569b;cursor:default">0%</span>
+	                        </div>
+					</div>	
+	      		</div>    
+	      		<!-- </div> -->
+	      </div>
+	     
+	    </div><!-- /.modal-content -->
+	  </div><!-- /.modal-dialog -->
+	</div><!-- /.modal -->
+
+	<!-- 纪年换算 -->
+	<div class="modal" tabindex="-1" role="dialog" id="annals">
+	  <div class="modal-dialog" role="document" id="updateStyle">
+	    <div class="modal-content" style="width:600px;height: 500px;margin:0;margin-left: -35px;margin-top: -10px;background:#f2f2f2;">
+	     <!--  <div class="modal-header nopadding">
+	        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+	        <h4 class='annals'>纪年换算</h4>
+	      </div> -->
+	      <div class="modal-body nopadding1">
+	      	<div class="small-title" id="selectedAnnals">
+				<div class="wordActive" onclick="ADtoCanlendar(1)" >公元纪年
+				    <img src="./images/箭头  未选中.png" alt=""> 年号纪年
+				</div>
+				<span>|</span>
+				<div onclick="ADtoCanlendar(2)">年号纪年
+				    <img src="./images/箭头  未选中.png" alt=""> 公元纪年
+				</div>
+				<span>|</span>
+				<div onclick="ADtoCanlendar(3)">多条件换算</div>
+			</div>	
+	      	<!-- 显示公元纪年到年号几年 -->
+			<div id="annals1">
+				<div class="input-div">
+					<span>
+					 	<input type="number" class="inputBob1"  id="importYear" placeholder="请输入公元纪年">&nbsp; 年
+				 	</span>
+	  				<span>
+	  					<label class="radio-inline" onclick="conformBC(1)">
+						  <input type="radio" name="isBC" value="isBC1" checked>公元
+						</label>
+						<label class="radio-inline" onclick="conformBC(2)">
+						  <input type="radio" name="isBC" value="isBC2">公元前
+						</label>
+	  				</span>
+	  				<button type="button" class="myBtn"  onclick="changeYear1()" style="background-color: #2b579a">换算</button>
+				</div>
+
+				<div class="input-info" >
+					<span id="bcToReInput" style="display: none"></span>
+				</div>
+				<div style="width: 100%;height: 1px;border-bottom: 1px solid #ccc;"></div>
+				
+				<div class="history cursornone" >
+					<span style="width: 60%;">
+						<span style="width: 22%;">历史时期：</span>
+						<span style="width: 78%;" class="noContent" id="showHistory1"></span>
+					</span>
+					<span style="width: 40%;">
+						<span style="width: 25%;">干&nbsp;&nbsp;支：</span>
+						<span style="width: 75%;" class="noContent" id='branches1'></span>
+					</span>
+				</div>
+			</div>
+			<!-- 显示年号几年到公元纪年 -->
+			<div id="annals2">
+				<div class="input-div">
+					<span>
+					 	<input type="text" class="inputBob1"  id="importYear1" placeholder="请输入年号">
+				 	</span>
+	  				<span></span>
+	  				<button type="button" class="myBtn" onclick="changeYear(1)" style="background-color: #2b579a">换算</button>
+				</div>
+
+				<div class="input-info" >
+					<span id="reToBcInput" style="display: none"></span>
+				</div>
+				<div style="width: 100%;height: 1px;border-bottom: 1px solid #ccc;"></div>
+
+				<div class="history">
+					<span style="width: 60%;">
+						<span>公元纪年：</span>
+						<span class="noContent" id="showHistory2"></span>
+					</span>
+					<span style="width: 40%;">
+						<span style="width: 25%;">干&nbsp;&nbsp;支：</span>
+						<span style="width: 75%;" class="noContent" id='branches2'></span>
+					</span>
+				</div>
+			</div>
+
+			<!--多条件换算 -->
+			<div id="annals3">
+				<div class="input-div" id="moreSolutionInputs">
+					<span>
+					 	<input type="text" class="inputBob1 inputBob2"  id="importYear2" placeholder="请输入政权">
+					 	<span>&nbsp;政权</span>
+				 	</span>
+				 	<span>
+					 	<input type="text" class="inputBob1 inputBob2"  id="importYear3" placeholder="请输入君主">
+					 	<span>&nbsp;君主</span>
+				 	</span>
+				 	<span>
+					 	<input type="text"  class="inputBob1 inputBob2" id="importYear4" placeholder="请输入年号">
+					 	<span>&nbsp;年号</span>
+				 	</span>
+	  				<button type="button" class="myBtn" onclick="changeYear2(1)" style="background-color: #2b579a">换算</button>
+				</div>
+
+				<div class="input-info" >
+					<span id="moreSolutionInput" style="display: none"></span>
+				</div>
+				<div style="width: 100%;height: 1px;border-bottom: 1px solid #ccc;"></div>
+
+				<div class="history">
+					<span style="width: 48%;">
+						<span style="width: 28%;">历史时期：</span>
+						<span style="width: 72%;" class="noContent" id="showHistory3"></span>
+					</span>
+					<span style="width: 24%;">
+						<span>干支：</span>
+						<span class="noContent" id='branches3'></span>
+					</span>
+		  			<span style="width: 28%;">
+			  			<span>公元纪年：</span>
+			  			<span class="noContent" id='BC3'></span>
+		  			</span>
+				</div>
+			</div>
+
+			 <table  cellspacing="0" class="table">
+		      <thead>
+		         <tr class="trBG">
+		          <th>政权</th>
+		          <th>君主</th>
+		          <th>年号</th>
+		        </tr>
+		      </thead>
+		      <tbody id="tbody" >
+		        
+		      </tbody>   
+		    </table>
+
+		    <!-- 分页 -->
+	     	<div  id="setPage" style="height:40px;">
+	            <div class="dataTables_paginate paging_bootstrap">
+	                <ul class="pagination pagination-sm remove-margin" id="pages">
+	                </ul>
+	            </div>
+	            <span class="show-info">
+		            第<strong id="curpage"></strong>页 
+		            总共 <strong id="totalpage"></strong>页
+	            </span>
+		    </div>
+      		
+	      </div>
+	    </div><!-- /.modal-content -->
+	  </div><!-- /.modal-dialog -->
+	</div>
+	
+	<!-- 个人中心修改密码 -->
+	<div class="modal" tabindex="-1" role="dialog" id="updateInfo">
+	  <div class="modal-dialog" role="document">
+	    <div class="modal-content" style="width: 480px;height: 500px;margin-top: -10px;margin-left: -35px;">
+	    <!--   <div class="modal-header">
+	        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+	       	<p style="font-size: 16px;padding-left: 18px;">修改个人信息</p>
+	      </div> -->
+	      <div class="modal-body">
+	      	 <div class="row">
+				  <div class="headPng">
+				  	<img src="">
+				  </div>
+				  <div class="updateContent" id="updateInfoContent">
+				  	 <p class="upheader" id="upload">上传头像</p>
+				  	 <div class="form-group">
+					      <input type="text" class="form-control" id="inputAccount" placeholder="昵称">
+					  </div>
+					  <div class="form-group" id="isMaleChecked">
+					  	<span style="margin-left:15px;" >
+		  					<label class="radio-inline" onclick="selectMale(1)"  style="margin-right: 20px;">
+							  <input type="radio" name="male" value="male" checked>男
+							</label>
+							<label class="radio-inline" onclick="selectMale(2)"  style="margin-right: 20px;">
+							  <input type="radio" name="male" value="female">女
+							</label>
+		  				</span>
+					  </div>
+					  <div class="form-group">
+					      <input type="number" class="form-control" id="activeCode" placeholder="激活码">
+					  </div>
+					  <input type="submit" id="updateInfoBtn" class="form-control add-border" value="确&nbsp;定"
+					  style="margin:30px 0">
+				  </div>
+			</div>
+
+			<div class="loginSuccess" id="updateInfoSuccess" style="width: 180px;">
+	      		<img src="./images/注册成功.png" alt=""><span>修改成功！</span>
+	        </div>
+	        <div class="loginFail" id="updateInfoFail" style="width: 300px;margin-left: 28%">
+	      		<img src="./images/注册失败.png" alt=""><span></span>
+	        </div>
+
+	      </div>
+	     
+	    </div><!-- /.modal-content -->
+	  </div><!-- /.modal-dialog -->
+	</div><!-- /.modal -->
+
+	<!-- 填写激活码 -->
+	
+	
+	
+
+	<script src="./js/ajax.js"></script>
+    <script src="./jquery-1.11.0.min.js"></script>
+    <script src="./js/bootstrap.min.js"></script>
+    <script src="./js/sha.js"></script>
+    <script src="./js/bootstrapValidator.min.js"></script>
+    <script src="./js/page.js"></script>
+    <script src="./js/sweetalert.min.js"></script>
+    <script src="./modal.js"></script>
+    
+  </body>
+</html>

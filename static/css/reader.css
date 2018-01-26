@@ -1,0 +1,485 @@
+html,body{
+            height: 100%;
+           }
+ a, address, b, big, blockquote, body, center, cite, code, dd, del, div,
+ dl, dt, em, fieldset, font, form, h1, h2, h3, h4, h5, h6,
+ html, i, iframe, img, ins, label, legend, li, ol, p, pre, 
+small, span, strong, u, ul, var {
+    margin: 0;
+    padding: 0;
+        }
+        a{text-decoration: none}
+        li{list-style: none;}
+
+
+.index-cont {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.mark-img-class {
+    position: fixed;
+    top: 15px;
+    left: 1.5%;
+}
+
+
+.lib-cate {
+    position: fixed;
+    top: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    // box-shadow: 5px 5px 10px #666;
+    height: 100%;
+    min-height: 200px;
+    width: 300px;
+    background: white
+}
+
+
+li {
+    list-style: none
+}
+
+.lib-cate-toggle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    right: -70px;
+    top: 0;
+    width: 70px;
+    height: 70px;
+    background: #2b579a;
+    /*border-radius: 50%;*/
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    opacity: 0.5
+}
+
+.addNote {
+    right: -100px;
+    top: 100px;
+    width: 100px;
+    font-size: 18px;
+}
+
+.lib-cate-toggle:hover {
+    opacity: 1
+}
+
+.book-or-section-lib {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 80%;
+    height: 8%;
+    margin-bottom: 2%;
+}
+
+.lib-active {
+    background: #2b579a;
+    color:white;
+}
+
+.book-or-section-lib span {
+    display: inline-block;
+    padding: 5px 15px;
+    border: 1px solid #2b579a;
+    cursor: pointer;
+}
+
+.lib-list-wrap {
+    width: 80%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.book-or-section-lib-list {
+    width: 110%;
+    height: 90%;
+    overflow-y: scroll;
+}
+
+.book-or-section-lib-list ul {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px
+}
+
+.book-or-section-lib-list li {
+    cursor: pointer;
+    margin-bottom:  5px;
+    width: 80%;
+    line-height: 30px;
+    
+}
+
+.book-or-section-lib-list li:hover {
+    // background: #eee
+}
+
+.book-sections-list:hover {
+   cursor: pointer;
+   background: #e4ebf5;
+}
+
+.font-model-list {
+     margin-top: 10px;
+    height: 57px !important;
+    display: flex;
+    flex-direction: row !important;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    font-size: 14px;
+    box-shadow: 0px 5px 15px #ddd
+}
+
+.font-model-list:hover {
+
+    outline: 7px solid #e4ebf5;
+    border: none;
+}  
+
+.font-model-list img {
+    position: absolute;
+    right: 0px;
+    top: 20px;
+    width: 20px !important;
+    height: 20px !important;
+    margin: 0 10px 0 20px !important;
+
+}
+
+
+.book-cont-bottom {
+    position: fixed;
+    left: 0;
+    bottom: 0px;
+    display: flex;
+     justify-content: space-between;
+    align-items: center;
+     width: 100%;
+    height: 38px;
+   background: white;
+   color:#666
+ }
+
+.book-cont-bottom span:nth-child(1) {
+    display: inline-block;
+    margin-left: 5%;
+}
+
+.book-cont-bottom span:nth-child(2) {
+    display: inline-block;
+    margin-right: 6%;
+}
+
+.page-exchange {
+    position: fixed;
+    top: 50%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: -50px;
+    width: 40px;
+    height: 100px;
+    opacity: 0.7
+}
+
+.page-exchange-left {
+    left: 1%;
+}
+
+.page-exchange-right {
+    right: 1%;
+}
+
+.page-exchange img {
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.loading-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    background: #444;
+    opacity: 0.7;
+}
+
+.loading-content img {
+    width: 64px;
+    cursor: pointer;
+}
+
+.load-other {
+    opacity: 1;
+    background: transparent;
+    color:white;
+    font-size: 18px;
+}
+
+
+   /*=============  涉及系列  ================*/
+    #modalBody{
+    margin-bottom: 30px;
+    }
+    
+   #modalBody .span1,.span10{
+    margin: 0 15px 15px 0;
+    line-height: 30px;
+    display: inline-block;
+    padding: 0 15px;
+    background-color: #f2f2f2;
+    cursor: pointer;
+    position: relative;
+    color:#666;
+   }
+
+  #modalBody .span1:hover{
+    background-color: #e4e4e4;
+    color:#333;
+  }
+  #modalBody .span10:hover{
+    background-color: #e4e4e4;
+    color:#333;
+  }
+  
+   .noInnerHtml{
+    text-align:center;
+    line-height: 40px;
+   }
+
+  
+   #modalBody .span1 .showBox2{
+    width: 300px;
+    display: block;
+    position: absolute;
+    left:98%;
+    top:0;
+    z-index: 1000008787;
+    padding-left: 19px;
+    margin-top: 16px;
+    background: url('../images/jian.png') no-repeat;
+   }
+
+   #modalBody .span1 .showBox1{
+    display: inline-block;
+    width: 100%;
+    height: 100%;
+    background-color: #e4e4e4;
+    padding: 8px 20px ;
+    line-height: 22px;
+    font-size: 13px;
+  }
+
+#modalBody .div{
+    height: auto;
+    overflow: hidden;
+    margin:0 auto;
+}
+
+#modalBody .div1{
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #ccc;
+    margin: 10px 15px;
+    width: 150px;
+    height: 150px;
+    float: left;
+
+}
+
+#modalBody .div1 img{
+    width: 90%;
+    height: 105px;
+    margin:5%;
+    cursor: pointer;
+}
+
+#modalBody .div1 p{
+    width: 90%;
+    font-size: 12px;
+    margin:5%;
+    text-align: center;
+}
+
+
+.context-menu {
+    position: absolute;
+    left: 0;
+    top: 0;
+    box-shadow: 2px 2px 2px #999;
+    width: 100px;
+    height: auto;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.context-menu li {
+    padding: 0 10px;
+    font-size: 14px;
+    text-align: left;
+    list-style: none;
+    line-height: 30px;
+    cursor: pointer;
+}
+
+.context-menu li:hover {
+    background: #eee
+}
+
+.context-menu .menu-disabled:hover {
+    background: #fff;
+}
+
+.menu-disabled {
+    color:#aaa;
+}
+
+/* ======= 设备切换模态框 ========== */
+.equipement{
+  background-color: #2b579a;
+  line-height: 50px;
+  color:white;
+  font-size: 15px;
+  text-align: center;
+  margin-top: 0;
+
+}
+
+#equipement .nopadding{
+  padding: 0;
+  border:0;
+}
+#equipement .close {
+    margin-top: 8px;
+    margin-right: 10px;
+    color: white;
+}
+
+.select{ 
+  display: flex; 
+  justify-content:space-between;
+  font-size: 14px;
+}
+
+.select .mybtn1{
+  background-color: #2b579a;
+  padding: 5px 10px;
+  color:white;
+  cursor: pointer;
+  border:none;
+  border-radius: 6px;
+}
+.checkbox {
+  height: 390px;
+  overflow-y: scroll; 
+}
+
+.checkbox label{
+  display: block;
+  line-height: 30px;
+  border:1px solid #ddd;
+  text-align: left;
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.checkbox input{
+  position: absolute;
+  right:15px;
+  top:5px;
+}
+
+
+
+.exchange-map {
+    width: 100%;
+    height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.exchange-map>div {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    /*background: #eee;*/
+    margin: 10px 20px 10px 0;
+    width: 150px;
+    height: 150px;
+    /*background: yellow*/  
+}
+
+.exchange-map>div>img {
+    margin: 10px auto;
+    width: 90%;
+    height: 105px;
+}
+
+.exchange-map>div p {
+    text-align: center;
+    padding: 0 10px;
+    font-size: 12px;
+    color: #444;
+}
+
+.down-load-modal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 115px;
+    background: #2b579a;
+    opacity: 0.3;
+}
+
+.down-load-modal img {
+    width: 64px;
+    height: 64px
+}
+
+
+.down-load-modal div {
+    width: 64px;
+    height: 64px;
+}
+
+
+.search-content {
+    background:#5980b8;
+}
+
+
+.search-active {
+    border-bottom: 5px solid red;
+}

@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>新建笔记</title>
+	<link rel="stylesheet" href="css/note.css">
+  <link rel="stylesheet" href="css/message.css">
+	<script src="vue.js"></script>
+	<script src="./js/ajax.js"></script>
+	<script src="jquery-1.11.0.min.js"></script>
+  <script src="js/localStorage.js"></script>
+</head>
+<body oncontextmenu="return false">
+	 <div class="note-content" :style="{height:winHeight +'px',width:winWidth * 0.9 + 'px'}" id="noteContent" @click="conMenuShow = false" @contextmenu.prevent="">
+	     <div class="note-title" :style="{width:winWidth * 0.9 + 'px'}">
+	        <input type="text" placeholder="请输入笔记标题" v-model="input" @focus="btnDisabled=false"
+              :style="{width:(winWidth * 0.9 - 2)+ 'px'}">
+	     </div>
+	     <div id="editor" ref="editor" contentEditable="true" class="note-body" :style="{height:winHeight - 200 + 'px',width:winWidth * 0.9 + 'px'}"  v-html="contents" @click="clickToBookView($event)"   @contextmenu.prevent="openContextMenu($event)" @focus="btnDisabled=false" @keydown="pasteText($event)" >
+	         
+	     </div>
+
+	     <div class="save-btns">
+	       <button class="primary" @click="submitNote" :style="{background:btnDisabled?'#ccc':'#2b579a'}" :disabled="btnDisabled">保存</button>
+	     </div>
+
+       <div v-show="false" ref="saveHtml"></div>
+
+	     <ul class="context-menu" :style="{left:conMenuLeft+'px',top:conMenuTop + 'px'}" v-show="conMenuShow">
+            <li :class="menuListDisable.copy?'':'menu-disabled'" @click="closeMenuAndDo($event,'copy')">复制</li>
+            <li :class="menuListDisable.paste?'':'menu-disabled'" @click="closeMenuAndDo($event,'paste')">粘贴</li>
+            <li :class="menuListDisable.cut?'':'menu-disabled'" @click="closeMenuAndDo($event,'cut')">剪切</li>
+            <li :class="menuListDisable.selectAll?'':'menu-disabled'" @click="closeMenuAndDo($event,'selectAll')">全选</li>
+            <li :class="menuListDisable.insertImg?'':'menu-disabled'" @click="closeMenuAndDo($event,'insertImg')">插入图片</li>
+            <li :class="menuListDisable.insertVideo?'':'menu-disabled'" @click="closeMenuAndDo($event,'insertVideo')">插入视频</li>
+            <li :class="menuListDisable.insertAudio?'':'menu-disabled'" @click="closeMenuAndDo($event,'insertAudio')">插入音频</li>
+      </ul>
+
+      <div class="message" id="message">
+        <img class="el-message__img" src="" id="messageType">
+        <div class="el-message__group">
+          <p id="messageText"></p>
+        </div>
+      </div>
+
+
+      <div class="loading-content" v-show="loading"></div>
+    
+      <div class="loading-content load-other" v-show="loading" v-cloak>
+        <p>正在上传{{uploadText}}，请稍候...</p>
+      </div>
+
+
+      <img src="./images/video.png" alt="" v-show="false" ref="videoImg">
+      <img src="./images/audio.png" alt="" v-show="false" ref="audioImg">
+	  </div>
+
+  <script src="js/message.js"></script>
+  <script>
+  	var $vm = new Vue({
+  		el:'#noteContent',
+  		data:{
+  			  winWidth: window.innerWidth,
+	        winHeight: window.innerHeight,
+	        input:'',
+	        textarea:'',
+	        contents:'',
+          btnDisabled:false,
+	        conMenuShow:false,
+	        conMenuLeft: 100,
+          conMenuTop: 100,
+	        menuListDisable: {
+                copy: false,
+                paste: false,
+                cut: false,
+                selectAll: false,
+                insertImg: true,
+                insertVideo: true,
+                insertAudio: true
+            },
+          message:null,
+          uploadText:'图片',
+          loading:false
+  		},
+  		methods:{
+	      setWindow() {
+	        this.winWidth = window.innerWidth;
+	        this.winHeight = window.innerHeight;
+	      },
+        //监听粘贴事件
+        pasteText(e) {
+          if(e.ctrlKey && e.keyCode==86) {
+             e.preventDefault();
+             var clipText = GetClip();
+
+             if(!clipText) return;
+
+            if(!IsCopySource()) {
+                clipText = GetClip().replace(/<a href="url[^>]*>[\s\S]*?<\/a>/g,'');
+            }
+
+            this.$refs.editor.innerHTML += clipText;
+            // 
+            // this.$refs.editor.focus();
+          }
+          
+        },
+        //点击有出处链接的，跳转到图书阅读
+        clickToBookView(e) {
+          var linkNode = e.target;
+          switch (linkNode.getAttribute('type')) {
+            case 'video/mp4':
+              //此时应该去看视频
+              SaveArgument('videoSrc='+linkNode.getAttribute('realvideo'));
+              OpenForm(Math.floor(GetFormWidth()*0.375),Math.floor(GetFormHeight()/2),'/index.html#/multimediaView','多媒体播放');
+              break;
+            case 'audio/mpeg':
+              //此时应该去听音频
+              SaveArgument('audioSrc='+linkNode.getAttribute('realaudio'));
+              OpenForm(Math.floor(GetFormWidth()*0.375),Math.floor(GetFormHeight()/2),'/index.html#/multimediaView','多媒体播放');
+              break;  
+            default:
+              // statements_def
+              break;
+          }
+
+        },
+	      //保存按钮
+	      submitNote() {
+          //验证有没有用户信息
+          var hasUserId = volidUserId();
+          if(!hasUserId) return;
+	        //提交按钮
+	        //处理标题
+	        var resInput = this.input.replace(' ','');
+	        var resContent = this.$refs.editor.innerHTML.replace(' ','');
+
+
+	        if(resInput == '' ) {
+	           // ShowMessage('请输入笔记标题！');
+             this.message.showMessage('warming','请输入笔记标题！');
+	           return;
+	        }
+
+	        if(resContent == '' ) {
+	           // ShowMessage('请输入笔记内容！');
+             this.message.showMessage('warming','请输入笔记内容！'); 
+	           return;
+	        }
+
+	           if(env=="dev"){
+      	        	$.ajax({
+          				   type: 'POST' ,
+          				   url: baseUrl + "/notebook/create",
+          				   data: {
+          		                contents:''+this.$refs.editor.innerHTML,
+          		                title:''+this.input,
+          		                userid:localStorage.getItem('userId'),
+          		            },
+          				   success: (msg)=>{
+          				     var res = JSON.parse(msg);
+          				     if(res.Code == 200 && res.Description == '成功') {
+                                    // ShowMessage('添加笔记成功！');
+                                  this.message.showMessage('success','添加笔记成功！');
+          		                }else {
+          		                    // ShowMessage('添加失败请重试！');
+                                  this.message.showMessage('error','添加失败请重试！')
+          		                }
+          				   }
+          				});
+	          }else if(env=="prod"){
+              
+	            var data={
+	                contents:this.$refs.editor.innerHTML,
+	                title:this.input,
+	                userid:localStorage.getItem('userId')
+	              }
+
+	           // var winResult = ApiTransfer('post','/notebook/create','contents='+this.$refs.editor.innerHTML+'&title='+this.input+'&userid='+localStorage.getItem('userId'));
+	           //     winResult=JSON.parse(winResult);
+	           //     if(winResult.Code == 200 && winResult.Description == '成功') {
+            //             // CloseForm();
+            //             ShowMessage('添加笔记成功！');
+	           //      }else {
+	           //          ShowMessage('添加失败请重试！')
+	           //      }
+             //     
+             //      
+             //       
+  
+                this.btnDisabled = true;
+               //下面是配合winform异步获取数据
+                ApiTransfer('post','/notebook/create',JSON.stringify(data),(winResult)=>{
+                     winResult=JSON.parse(winResult);
+                     if(winResult.Code == 200 && winResult.Description == '成功') {
+                          // ShowMessage('添加笔记成功！');
+                          this.message.showMessage('success','添加笔记成功！');
+                          setTimeout(()=>{
+                            CloseForm();
+                          },2000)
+                      }else {
+                          // ShowMessage('添加失败请重试！');
+                          this.message.showMessage('error','添加失败请重试！')
+                          this.btnDisabled = false;
+                      }
+                });
+                
+	            }
+	        },
+	        //右键操作,打开menu
+          openContextMenu(e,type) {
+               if( type == -1){
+                 e.preventDefault();
+                 return;
+               }; 
+           
+               this.conMenuLeft = e.pageX;
+               this.conMenuTop = e.pageY;
+               this.conMenuShow = true;
+
+               // 先将某些按钮止于不可用
+               this.menuListDisable = {
+	                copy: false,
+	                paste: true,
+	                cut: false,
+	                selectAll: false,
+	                insertImg: false,
+	                insertVideo: false,
+	                insertAudio: false
+	            }
+             
+              //  //判断复制按钮能否使用
+               if(document.getSelection().toString() !== '') {
+                   this.copySection1 = document.getSelection().toString();
+                  
+                  //获取选区的document-fragment对象，并创建一个div保存这个对象的html，方便复制和剪切
+                  var selectionObj = window.getSelection();
+　　　　          var rangeObj = selectionObj.getRangeAt(0);
+　　　　          this.copySection = rangeObj.cloneContents();
+
+                  this.$refs.saveHtml.innerHTML = '';
+                 if(this.copySection) this.$refs.saveHtml.appendChild(this.copySection);
+                  
+
+                  //获取开始和结束的位置，方便设置选区
+                  this.startNode = document.getSelection().anchorNode;
+                  this.endNode = document.getSelection().focusNode;
+                  this.start = document.getSelection().anchorOffset;
+                  this.end = document.getSelection().focusOffset;
+
+                  this.menuListDisable.copy = true;
+               }
+
+               //判断剪切按钮，与复制一样
+               if(document.getSelection().toString() !== '') {
+                  this.menuListDisable.cut = true;
+               }
+
+               //判断全选按钮
+               if(this.$refs.editor.innerHTML !== '') {
+                  this.menuListDisable.selectAll = true;
+               }
+
+               //判断插入相关
+               if($(e.target).parents('#editor').length !== 0 || $(e.target).attr('id') == 'editor') {
+                  this.menuListDisable.insertImg = true;
+                  this.menuListDisable.insertVideo = true;
+                  this.menuListDisable.insertAudio = true;
+               }
+
+              //  //判断阅读按钮能否使用
+              //  if(e.target.nodeName == 'TD') {
+              //   //都点击的td
+              //     this.aimNode = e.target.parentNode.children[3];
+              //  }else if(e.target.nodeName == 'A') {
+              //     // 点击的是第一个单元格里的文字a标签
+              //     this.aimNode = e.target.parentNode.parentNode.parentNode.children[3];
+              //  }else if(e.target.nodeName == 'DIV') {
+              //     //点击的是a标签的 父容器div
+              //     this.aimNode = e.target.parentNode.parentNode.children[3];
+              //  }else if(e.target.nodeName == 'I') {
+              //     // 点击的是a 的子元素i
+              //     this.aimNode = e.target.parentNode.parentNode.parentNode.parentNode.children[3];
+              //  }else if(e.target.nodeName == 'I') {
+              //     // 点击的是a 的子元素i
+              //     this.aimNode = e.target.parentNode.parentNode.parentNode.parentNode.children[3];
+              //  }else if(e.target.nodeName == 'BUTTON') {
+              //     // 点击的是button
+              //     this.aimNode = e.target.parentNode.parentNode;
+              //  }else if(e.target.nodeName == 'SPAN') {
+              //     // 点击的是button
+              //     this.aimNode = e.target.parentNode.parentNode.parentNode;
+              //  }
+
+              // if(this.aimNode) {
+              //    if(this.aimNode.innerText.trim() == '点击下载') {
+              //      this.menuListDisable.download = true;
+              //    }else if(this.aimNode.innerText.trim()== '阅 读') {
+              //        this.menuListDisable.read = true ;
+              //        this.menuListDisable.readAll = true ;
+              //    } 
+              // }
+
+          },
+          //点击右键菜单中的选项的操作
+          closeMenuAndDo(e,operate) {
+              if(e.target.className !== '') return;
+
+              //将选择的document-dragment区域存入隐藏div中，方便获取html代码
+              
+              var selectHtml = this.$refs.saveHtml.innerHTML;
+
+              switch (operate) {
+                case 'copy':
+                      if(env == 'prod') {
+                         Clip(selectHtml);  //因为谷歌浏览器不允许直接操作剪贴板，所以调用C#的方法实现
+                      }
+                  break;
+                case 'paste':
+                      if(env == 'prod') {
+                         var getHtmlFromClip = GetClip();  //因为谷歌浏览器不允许直接操作剪贴板，所以调用C#的方法实现
+                         if(!getHtmlFromClip) return;
+
+                         
+                         if(!IsCopySource()) {
+                            getHtmlFromClip = getHtmlFromClip.replace(/<a href="[^>]*>[\s\S]*?<\/a>/g,'');
+                         }
+
+                         this.$refs.editor.innerHTML += getHtmlFromClip;
+                      }
+                  break;
+                case 'cut':
+                      var selection = window.getSelection();
+                      var range = document.createRange();
+                      range.setStart(this.startNode, this.start)
+                      range.setEnd(this.endNode, this.end)
+
+                      selection.removeAllRanges();
+                      selection.addRange(range);
+                      document.execCommand('Delete');
+
+                      if(env == 'prod') {
+                        Clip(selectHtml);  //因为谷歌浏览器不允许直接操作剪贴板，所以调用C#的方法实现
+                      }
+                  break;
+                case 'selectAll':
+                      var selection = window.getSelection();
+                      var range = document.createRange();
+                      range.selectNodeContents(document.getElementById('editor'));
+                      selection.removeAllRanges();
+                      selection.addRange(range);
+                      // window.clipboardData.setData("Text",this.copySection);
+                  break;
+                case 'insertImg':
+ 
+                      openLoadingModal('图片',()=>{
+                         UpLoadFile('图片|*.jpg;*.png;*.gif',(imgUrlData)=>{
+                            imgUrlData = JSON.parse(imgUrlData);
+                            if(imgUrlData.Code == 200) {
+                                this.$refs.editor.innerHTML = this.$refs.editor.innerHTML +  '<img src="'+imgUrlData.Data.Url+'" width="320" alt="'+imgUrlData.Data.FileName+'" title="'+imgUrlData.Data.FileName+'">';
+                              }
+
+                              this.loading = false;
+                              EnableNoteBookBtn(true);
+                           });
+                      })
+
+                  break;
+                case 'insertVideo':
+
+                      openLoadingModal('视频',()=>{
+                          UpLoadFile('视频|*.mp4',(videoUrl)=>{
+                              videoUrl = JSON.parse(videoUrl);
+                              if(videoUrl.Code == 200) {
+                                  // this.$refs.editor.innerHTML = this.$refs.editor.innerHTML +  '<video src="'+videoUrl.Data.Url+'" width="320" height="240" controls="controls"></video>';
+                                  var videoStr = `
+                                       <img id="video${new Date().toLocaleDateString()}" src="${this.insertVideoOrAudio(1,videoUrl)}" realvideo="${videoUrl.Data.Url}" type="video/mp4" width="200" height="auto" alt="${videoUrl.Data.FileName}" title="${videoUrl.Data.FileName}">
+                                       `
+                                  this.$refs.editor.innerHTML = this.$refs.editor.innerHTML + videoStr;
+                              }
+
+                              this.loading = false;
+                              EnableNoteBookBtn(true);
+                          });
+                      })
+
+                  break;
+                case 'insertAudio':
+
+                      openLoadingModal('音频',()=>{
+                        UpLoadFile('音频|*.mp3',(audioUrl)=>{
+                            audioUrl = JSON.parse(audioUrl);
+
+                            if(audioUrl.Code == 200) {
+                               // this.$refs.editor.innerHTML = this.$refs.editor.innerHTML +  '<audio src="'+audioUrl.Data.Url+'" width="100" controls="controls"></audio>';
+                               var audioStr = `<img id="audio${new Date().toLocaleDateString()}" src="${this.insertVideoOrAudio(2,audioUrl)}" realaudio="${audioUrl.Data.Url}" type="audio/mpeg" width="200" height="auto" alt="${audioUrl.Data.FileName}" title="${audioUrl.Data.FileName}">`;
+
+                               this.$refs.editor.innerHTML = this.$refs.editor.innerHTML + audioStr ;
+                            }
+
+                            this.loading = false;
+                            EnableNoteBookBtn(true);
+                        });
+                      })
+
+
+                  break;              
+                     
+                default:
+                  // statements_def
+                  break;
+              }
+
+
+          },
+
+          insertVideoOrAudio(type,data) {
+            console.log(data)
+           // type - 1 视频  2- 音频
+             let img = null;
+             if(type == 1) {
+                img = this.$refs.videoImg;
+             }else if(type == 2 ) {
+                 img = this.$refs.audioImg;
+             }
+
+              var canvas = document.createElement('canvas');
+              var context = canvas.getContext('2d');
+              canvas.width = 260;
+              canvas.height = 100;
+              
+              context.drawImage(img,0,0,260,100);
+
+              context.font='bold 14px "微软雅黑"';//设置文本样式
+              context.fillStyle='#444';
+              // context.fillText('hello worldhello worldhello worldhello worldhello worldhello worldhello world',90,20,160) //设置填充文本
+              var FileName = data.Data.FileName;
+                  FileName.slice(0,FileName.lastIndexOf('.'));
+              var ext = type == 1?'.mp4':'.mp3';
+
+              this.canvasTextAutoLine(FileName.substr(0,14)+ ext,canvas,95,35,20);
+
+              // this.canvasTextAutoLine('时长:10:00:00',canvas,95,85,20);
+              
+              return canvas.toDataURL("image/png");
+             
+          },
+
+          /*
+          str:要绘制的字符串
+          canvas:canvas对象
+          initX:绘制字符串起始x坐标
+          initY:绘制字符串起始y坐标
+          lineHeight:字行高，自己定义个值即可
+          */
+          canvasTextAutoLine(str,canvas,initX,initY,lineHeight){
+              var ctx = canvas.getContext("2d"); 
+              var lineWidth = 0;
+              var canvasWidth = canvas.width; 
+              var lastSubStrIndex= 0; 
+              for(let i=0;i<str.length;i++){ 
+                  lineWidth+=ctx.measureText(str[i]).width; 
+                  if(lineWidth>canvasWidth-initX-10){//减去initX,防止边界出现的问题
+                      ctx.fillText(str.substring(lastSubStrIndex,i),initX,initY);
+                      initY+=lineHeight;
+                      lineWidth=0;
+                      lastSubStrIndex=i;
+                  } 
+                  if(i==str.length-1){
+                      ctx.fillText(str.substring(lastSubStrIndex,i+1),initX,initY);
+                  }
+              }
+            }
+	    },
+	    mounted(){
+	      this.setWindow();
+        this.message = new Message();
+	      window.onresize = ()=>{
+	         this.setWindow();
+	      }
+
+	    },
+	    update() {
+	      console.log(1)
+	    }
+
+  	})
+  </script>
+  <script src="rich_editor.js"></script>
+  <script>
+  	function insertFile(url,type) {
+        var contEle = document.getElementById('editor');
+        if(!url.Success) {
+           $vm.$data.loading = false;
+           EnableNoteBookBtn(true);
+           return;
+         }
+          // 1-图片 2 - 音频  3-视频
+          switch (type) {
+           case 1:
+             contEle.innerHTML = contEle.innerHTML +  '<img src="'+url.Data.Url+'" width="320" alt="'+url.Data.FileName+'" title="'+url.Data.FileName+'">';
+             break;
+           case 3:
+             var videoStr = `
+                           <img id="video${new Date().toLocaleDateString()}" src="${$vm.insertVideoOrAudio(1,url)}" realvideo="${url.Data.Url}" type="video/mp4" width="200" height="auto" alt="${url.Data.FileName}" title="${url.Data.FileName}">
+                           `
+             contEle.innerHTML = contEle.innerHTML +  videoStr;
+             break;
+           case 2:
+             var audioStr = `<img id="audio${new Date().toLocaleDateString()}" src="${$vm.insertVideoOrAudio(2,url)}" realaudio="${url.Data.Url}" type="audio/mpeg" width="200" height="auto" alt="${url.Data.FileName}" title="${url.Data.FileName}">`;
+
+             contEle.innerHTML = contEle.innerHTML +  audioStr;
+             break;    
+           default:
+             break;
+         }   
+
+
+         $vm.$data.loading = false; 
+         EnableNoteBookBtn(true);
+             // statements_def
+          //    
+    }
+
+
+    function openLoading(text) {
+       $vm.$data.loading = true;
+       $vm.$data.uploadText = text;
+       $vm.$data.conMenuShow = false;
+    }
+
+
+    function openLoadingModal(text,fn) {
+        $vm.$data.loading = true;
+        EnableNoteBookBtn(false);
+        $vm.$data.uploadText = text;
+        $vm.$data.conMenuShow = false;
+
+        setTimeout(()=>{
+            if(fn) fn();
+        }, 100)
+    }
+
+
+    document.addEventListener('click', ()=>{
+         CloseMenueStrip();
+    }, false)
+
+
+    //关闭程序清除用户数据
+    function clearLocalStorage(type) {
+        if(type == 1) {
+            localStorage.removeItem('userId');
+        }else if(type == -1) {
+            localStorage.removeItem('searchArr');
+        } 
+    }
+
+
+  </script>
+</body>
+</html>

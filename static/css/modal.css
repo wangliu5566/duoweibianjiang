@@ -1,0 +1,485 @@
+/*登录*/
+#title1,#title3{
+	text-align: center;
+	overflow: hidden;
+  font-size: 16px;
+}
+
+.modal-dialog{
+  width: 400px;
+}
+#title1 span{
+	display: inline-block;
+	padding: 5px 15px;
+	background-color: #e4ebf5;
+	cursor: pointer;
+     margin-right: 5px;
+}
+#title1 .active{
+	background-color:#2b579a;
+     color:white;
+}
+
+#loginReg .form-control {
+  width: 70%;
+  margin: 0 auto;
+  font-size: 14px;
+}
+.loginSuccess{
+    width: 100%;
+    margin: 0 auto;
+    text-align: center;
+    display:none;
+}
+.loginSuccess span{
+    color:#227ab7;
+    margin-left: 5px;
+}
+.loginFail{
+     width: 100%;
+    margin: 0 auto;
+    text-align: center;
+    display:none;
+}
+.loginFail span{
+    color:rgb(201,0,0);
+    margin-left: 5px;
+}
+
+
+#sublime{
+	border-color: #009dd9;
+	color:#009dd9;
+}
+
+.forget {
+	margin:20px;
+	overflow: hidden;
+}
+
+.forget span{
+	float: right;
+	margin-right: 15%;
+	cursor: pointer;
+}
+
+.iconImg {
+	width: 70%;
+	margin:0 auto;
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 30px;
+}
+
+.iconImg div {
+  cursor: pointer;
+  width: 56px;
+  height: 56px;
+  -webkit-background-size: 56px 56px;
+  background-size: 56px 56px;
+}
+
+.png1 {
+  background: url("../images/wx.png") no-repeat;
+}
+
+.png1:hover {
+  background: url("../images/wx1.png") no-repeat;
+  -webkit-background-size: 56px 56px;
+  background-size: 56px 56px;
+}
+
+.png2 {
+  background: url("../images/wb.png") no-repeat;
+}
+
+.png2:hover {
+  background: url("../images/wb1.png") no-repeat;
+  -webkit-background-size: 56px 56px;
+  background-size: 56px 56px;
+}
+
+.png3 {
+  background: url("../images/qq.png") no-repeat;
+}
+
+.png3:hover {
+  background: url("../images/qq1.png") no-repeat;
+  -webkit-background-size: 56px 56px;
+  background-size: 56px 56px;
+}
+
+.help-block{
+  padding-left: 15%;
+}
+
+.getCodeCSS{
+  width: 110px;
+  height: 30px;
+  position: absolute;
+  right: 16%;
+  top:3px;
+  cursor: pointer;
+  color:#5882ad;
+  background-color: #fff;
+  border:none;
+}
+
+.add-border{
+  border:1px solid #5882ad;
+  color:#5882ad;
+}
+
+.showWord{
+  display: none;
+  padding-left: 15%;
+  margin-bottom: 40px;
+}
+.showSuccess{
+  display: none;
+  padding-left: 15%;
+  margin-bottom: 40px;
+}
+
+
+
+/*忘记密码*/
+#returnPage{
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+   	background: url("../images/return.png");
+    cursor: pointer;
+    -webkit-background-size: 20px;
+    background-size: 20px;
+}
+
+.modal  {
+   top:-5px !important;
+}
+ 
+.modal-header{
+  border:none;
+}
+
+.modal-header .close{
+	font-size: 30px;
+  font-weight: 400;
+}
+.forgetTitle{
+	margin-left: 40%;
+	font-size: 16px;
+	font-weight: 700;
+}
+
+/*纪年换算*/
+.nopadding{
+  padding: 0;
+}
+
+.nopadding1{
+  padding: 0 0 30px 0;
+  background-color: #f2f2f2;
+}
+
+#annals .close {
+    margin-top: 8px;
+    margin-right: 10px;
+    color: white;
+}
+
+.annals{
+  background-color: #5980b8;
+  line-height: 50px;
+  color:white;
+  font-size: 15px;
+  text-align: center;
+  margin: 0;
+}
+
+.small-title{ 
+  display: flex; 
+  justify-content:space-around;
+  font-size: 14px;
+  line-height: 40px;
+  background-color: #e4ebf5;
+  color:#666;
+}
+.small-title div{
+        margin: 0;
+    width: 213px;
+    text-align: center;
+    cursor: pointer;
+}
+.wordActive{
+  color:#333;
+  font-weight: 700;
+  border-bottom: 2px solid #5980b8;
+}
+
+span{
+  cursor: pointer;
+}
+
+.input-div{
+  display: flex;
+  justify-content: space-between;
+  padding:20px 20px 0 20px;
+  align-items:center;
+}
+
+.input-info {
+  height: 20px;
+  width: 100%;
+  padding-left: 20px;
+  color: rgb(201,0,0);
+  font-size: 12px;
+  line-height: 20px;
+}
+.inputBob1{
+  font-size: 14px;
+  padding-left: 8px;
+  line-height: 21px;
+}
+
+.inputBob2{
+  width: 110px;
+}
+
+.myBtn{
+  background-color: #5980b8;
+  padding: 6px 18px;
+  color:white;
+  cursor: pointer;
+  border:none;
+  border-radius: 6px;
+}
+
+.history,.history{
+  overflow: hidden;
+  padding:10px 20px;
+   line-height: 30px;
+ }
+ .history span{
+  display: block;
+  float: left;
+  cursor: default
+ }
+
+
+.table{
+  width: 94%;
+  padding:20px 0;
+  margin: 0 auto;
+  border:1px solid #ddd;
+}
+
+.table td{
+  padding:10px 20px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.table .trBG{
+  background:#e4ebf5;
+  font-size: 14px;
+  line-height: 30px;
+}
+
+.trBG th{
+  padding:10px 20px;
+  font-weight: 400;
+  text-align: center;
+}
+    
+#tbody tr{
+   background: #fff;
+   border-top: 1px solid #ddd;
+}
+   
+
+/*分页*/
+#setPage{
+  margin-top: 15px;
+  overflow: hidden;
+}
+
+.dataTables_paginate{
+  float: right;
+}
+
+.pagination{
+  margin:0;
+  margin-right: 20px;
+}
+
+.show-info{
+  float: right;
+  line-height: 31px;
+  margin-right: 10px;
+}
+
+#setPage li{
+  cursor: pointer;
+}
+
+.pagination-sm>li>a, .pagination-sm>li>span{
+  padding: 5px 7px;
+}
+
+
+
+/*修改个人资料*/
+.headPng,.updateContent{
+  float: left;
+}
+.headPng{
+  width: 30%;
+  margin:60px auto;
+  padding: 0 30px;
+}
+
+.headPng img{
+  width: 80px;
+  height: 80px;
+  border-radius: 40px;
+}
+
+.updateContent{
+  width: 70%;
+}
+
+.updateContent .form-control{
+  width: 90%;
+}
+
+.upheader{
+  color:#5882ad;
+  line-height: 30px;
+  margin-left: 15px;
+  cursor:pointer;
+}
+
+
+.exchangeUsersContMen {
+  margin: 0 auto;
+  width:350px;
+  height: 380px;
+  overflow: hidden;
+  margin-top: -30px;
+}
+
+.exchangeUsersCont {
+   margin: 0 auto;
+   width: 105%;
+   height: 92%;
+   overflow-y: scroll;
+}
+
+.account-title{
+  font-size: 20px;
+  font-weight: 700;
+}
+
+
+.account-other {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  height: 48px;
+  background:#f1f1f1;
+  margin-bottom: 20px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.account-other img {
+  margin-left: 10px;
+  margin-right: 20px;
+   width: 42px;
+}
+
+.del-user {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  margin-top: -15px;
+  display: none;
+  width: 30px;
+  height: 30px;
+  text-align: center;
+  line-height: 30px;
+  border-radius: 50%;
+  font-style: normal;
+  cursor: pointer;
+}
+
+
+.account-cur {
+  background: rgb(211,223,223);
+  margin-bottom: 40px;
+}
+
+.account-cur img{
+   margin-left: 10px;
+  margin-right: 20px;
+  width: 42px;
+}
+
+.add-other-user {
+  margin: 0 auto;
+  width:76%;
+  height: 32px;
+
+}
+
+
+    .go-update {
+      margin-top: 10px;
+      /*padding:10px 20px*/
+      float: left;
+      width: 100px;
+      height: 35px;
+      border-radius: 3px;
+      border: 1px solid #aaa;
+      cursor: pointer;
+      margin-bottom: 30px;
+      
+    }
+
+    .primary {
+      background: #d8eefd;
+      border:none;
+      color:white;
+    }
+    #progressP{
+      display:none;
+      margin-top:64px;
+    }
+    .update-progress {
+      width: 328px;
+      height: 16px;
+      border: 1px solid #2b579a;
+      background-color:#d8eefd;
+    }
+
+    .progress-cont {
+      width: 0%;
+      height: 100%;
+      background: #2b579a;
+      margin-bottom: 30px;
+    }
+
+
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button{
+        -webkit-appearance: none !important;
+        margin: 0; 
+    }
+
+    // .primary:hover {
+    //   background: rgb(44,153,233) 
+    // }
+

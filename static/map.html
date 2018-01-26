@@ -1,0 +1,2488 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <link rel="stylesheet" type="text/css" href="./css/bootstrap.min.css">
+  <link rel="stylesheet" href="./css/map.css">
+  <link rel="stylesheet" href="./css/message.css">
+  <style>
+  [v-cloak] {
+    display: none;
+  }
+
+  </style>
+  <script src="./vue.js"></script>
+  <script src="js/localStorage.js"></script>
+</head>
+
+<body>
+  <div class="content" :style="{height:windowHeight +'px'}" id="mapContent" @contextmenu.prevent="" @click="closeLibOper" @mousemove="btnMove" @mouseup="btnEnd" >
+    <div style="position: fixed;left: 0;top:0;z-index: 99999;display: flex;justify-content: center;align-items: center; width: 100%;height: 100%;background: white;" id="loadMenban">
+    </div>
+
+    <div class="message" id="message">
+      <img class="el-message__img" src="" id="messageType">
+      <div class="el-message__group">
+        <p id="messageText"></p>
+      </div>
+    </div>
+
+    <!--    <div class="map-header">
+            <button onclick="relatedArticles()">相关文章</button>
+            <button onclick="openModalEvent()">涉及事件</button>
+            <button onclick="showEquipement()">设备切换</button> -->
+    <!--  <button id="toggleHotArea">显示热区</button>
+            <button id="addCurMap">叠加当代图</button>
+            <button id="addAnyMap">叠加任意图</button> -->
+    <!-- </div> -->
+    <div class="img-group" v-for="(item,index) in imagesUrls" :style="{left:item.left+'px',top:item.top+'px',opacity:item.opacity/100,zIndex:item.zIndex,width:item.imgScrollWidth+'px',height:item.imgScrollHeight +'px'} " @mousedown.prevent="startMove($event,item,index)" @DOMMouseScroll="scrollImg($event)" @mousewheel="scrollImg($event,item)" @mousemove="moveImg($event,item)">
+      <img :src="item.src" alt="" @mousemove.prevent="" @selectstart.prevent="">
+      <div v-show="isHotAreaShow" 
+           v-for="(regionItem,regionIndex) in item.regions" 
+           :style="{left:regionItem.left + 'px',top:regionItem.top + 'px',width:regionItem.width + 'px',height:regionItem.height + 'px'}" 
+           :class="activeRegionId?(regionItem.RegionId == activeRegionId?'regionClass regionClass-active':'regionClass'):'regionClass'" 
+           @click.stop="openRegionDetail(regionItem)" 
+           @mousedown.stop=""
+           :title="regionItem.RegionTitle"
+        >
+        <!-- localStorage.getItem('activeRegionId')?(localStorage.getItem('activeRegionId') == regionItem.RegionId ?'regionClass-active':'regionClass'): -->
+        <div class="regionClass-center" :style="{width:regionItem.width - 8 + 'px',height:regionItem.height - 8 + 'px'}"></div>
+        
+      </div>
+    </div>
+    <!-- <div class="scroll-bar">
+            <button @click="handleScrollImg('-1')" style="transform: rotate(-90deg);"> - </button>
+            <div class="scroll-bar-progress-cont">
+                <div class="scroll-bar-progress" :style="{width:scrollPercent +'%'}">
+                </div>
+            </div>
+            <button @click="handleScrollImg('1')" style="transform: rotate(90deg);"> + </button>
+        </div> -->
+    <!-- 透明度条1 -->
+    <div class="opacity-bar" :style="{width:barHeight+'px',right:'-' + (1/windowWidth * 1000 * 100 > 175?175:1/windowWidth * 1000 * 100)+'px'}" v-show="imagesUrls.length==2" ref="opactityBarCont">
+      <div class="scroll-bar-progress-cont" @click="handleChangeOpacity">
+        <div class="scroll-bar-progress" :style="{width:opacityPercent +'%'}">
+        </div>
+        <div class="scroll-btn" @click.stop="" @mousedown.stop="btnStart" :style="{left:btnPosition - 18  + 'px'}">
+        </div>
+      </div>
+    </div>
+
+
+    <div class="control-bar" ref="controlBar">
+      <span :class="imagesUrls[0].opacity >=50?'active-map-tab':''" @click="setPicked(1)" v-cloak>
+               {{imagesUrls[0]?imagesUrls[0].name:''}} 
+               <i class="del-icon" v-if="imagesUrls.length==2" @click.stop="closeOneMap(0)">×</i>
+            </span>
+      <span v-if="imagesUrls.length==2" :class="imagesUrls[1].opacity >=50 && imagesUrls[0].opacity < 50?'active-map-tab':''" @click="setPicked(2)" v-cloak>
+                {{imagesUrls[1]?imagesUrls[1].name:''}} 
+                <i class="del-icon" v-if="imagesUrls.length==2" @click.stop="closeOneMap(1)">×</i>
+            </span>
+    </div>
+
+    <div  class="page-exchange page-exchange-left" 
+           @mouseenter="bodyMouseenter = true" 
+           @mouseleave="bodyMouseenter = false"
+           v-show="imagesUrls.length==1"
+           >
+         <div  v-show="imagesUrls.length == 1 && bodyMouseenter" id="preMap" style="position: relative;">
+            <img :src="leftArrow" alt="" @mouseenter="enterArrowSrc(-1)" @mouseleave="leaveArrowSrc(-1)" @click="pageExchange(-1)">
+            <span class="next-map-name next-map-name-left" :style="{width: preOrNextMapName.length <= 6 ? '100px':(preOrNextMapName.length > 6 && preOrNextMapName.length <= 8 ? '130px':'160px')}" v-show="isHoverBtn" v-if="isHoverLeftBtn">{{preOrNextMapName}}</span>
+        </div>
+    </div>
+
+
+   <div class="page-exchange page-exchange-right" @mouseenter="bodyMouseenter = true" 
+        @mouseleave="bodyMouseenter = false" v-show="imagesUrls.length==1">
+        <div v-show="imagesUrls.length == 1 && bodyMouseenter" id="nextMap" style="position: relative;">
+          <img :src="rightArrow" alt="" @mouseenter="enterArrowSrc(1)" @mouseleave="leaveArrowSrc(1)" @click="pageExchange(1)">
+          <span class="next-map-name next-map-name-right" :style="{width: preOrNextMapName.length <= 6 ? '100px':(preOrNextMapName.length > 6 && preOrNextMapName.length <= 8 ? '130px':'160px')}" v-show="isHoverBtn" v-if="!isHoverLeftBtn">{{preOrNextMapName}}</span>
+        </div>
+   </div>
+    
+
+
+    <div class="lib-cate" :style="{left:libLeft + 'px',boxShadow:libLeft >= -20 ?'5px 5px 10px #ccc':'' }">
+      <div class="book-or-section-lib">
+      </div>
+      <div class="lib-list-wrap">
+        <div class="book-or-section-lib-list">
+          <ul v-if="libIsActive">
+            <li v-for="(item,index) in maplistData" :title="item.Title" :class="item.hasDownLoad?'is-checked font-model-list':'font-model-list'" @click.stop="startDownLoad(item,index)" @mouseenter="showDownIcon(item,index)" @mouseleave="showDownIcon(item,index)">
+              <span v-cloak>{{item.Title.length <= 6?item.Title:item.Title.slice(0,6)+'...'}}</span> &nbsp;
+              <img src="./images/下载小.png" alt="" v-show="!item.showHasDownLoad" v-if="!item.startDownLoad">
+              <span v-else v-show="item.downLoadPercent !== 100" style="color:#337ab7; position: absolute;right: 10px;top: 14px;" v-cloak>{{item.downLoadPercent}}%</span>
+              <img src="./images/下载完成.png" alt="" v-show="item.hasDownLoad ">
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <!-- 下载上一张或下一张地图 -->
+    <div class="loading-content" v-show="loading"></div>
+    
+    <div class="loading-content load-other" v-show="loading" v-cloak>
+      <p>{{downLoadPercent}} %</p>
+      <p>正在为您下载 {{downLoadMapName}}，请稍候...</p>
+    </div>
+  </div>
+  <!-- 涉及地区人物事件 -->
+  <div class="modal fade" tabindex="-1" role="dialog" id="affeected">
+    <div class="modal-dialog" role="document" style="width: 70%;margin:0 auto;">
+      <div class="modal-content">
+        <div class="modal-header" id="activeTitle">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 id='events'>涉及事件</h4>
+        </div>
+        <div class="modal-body" id="modalBody">
+        </div>
+      </div>
+      <!-- /.modal-content -->
+    </div>
+    <!-- /.modal-dialog -->
+  </div>
+  <!-- 切换设备 -->
+  <div class="modal fade" tabindex="-1" role="dialog" id="equipement">
+    <div class="modal-dialog" role="document" style="width: 480px;height:400px;margin:0 auto;">
+      <div class="modal-content">
+        <div class="modal-header nopadding" id="activeTitle">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="equipement">设备切换</h4>
+        </div>
+        <div class="modal-body">
+          <div class="select">
+            <span>我的设备：<b id="myEqu"></b></span>
+            <input type="button" name="" class='mybtn1' value="确定" id="changeEquip">
+          </div>
+          <div class="checkbox" id="equipList">
+            <!-- 设备列表 -->
+          </div>
+        </div>
+      </div>
+      <!-- /.modal-content -->
+    </div>
+    <!-- /.modal-dialog -->
+  </div>
+  <script src="./js/ajax.js"></script>
+  <script src="./jquery-1.11.0.min.js"></script>
+  <script src="./js/bootstrap.min.js"></script>
+  <script src="./js/message.js"></script>
+  <script>
+  var $vm = new Vue({
+    el: '#mapContent',
+    data: {
+      imagesUrls: [{
+        src: "",
+        name: '',
+        scrollSize: 100,
+        isResie: false,
+        clentX: 10,
+        clentY: 10,
+        left: 0,
+        top: 0,
+        scrollPercent: 0,
+        opacity: 100,
+        zIndex: 1,
+        imgScrollWidth: 0,
+        imgScrollHeight: 0,
+        imgWidth: 5560,
+        imgHeight: 3794,
+        regions: [],
+        mapId: null,
+      }],
+      scrollPercent: 0,
+      copyImages: [],
+      // radio: '全部',
+      picked: '全部',
+      windowHeight: window.innerHeight,
+      windowWidth: 0,
+      resizeCount: 0,
+      opacityPercent: 50,
+      activeWindow: {},
+      isHotAreaShow: true,
+      activeRegionId: null,
+      bodyMouseenter:false,
+      hotAreaTimer: null,
+      saveHotAreaState: true,
+      leftArrow: './images/未选中-左.png',
+      rightArrow: './images/未选中-右.png',
+      allMapData: [],
+      libIsActive: true,
+      libLeft: -300,
+      maplistData: [],
+      mapId: "",
+      loading: false,
+      downLoadPercent: 0,
+      downLoadMapName: '',
+      nextMapName: '',
+      hasCollect: false,
+      btnScroll: false,
+      btnPosition: 250,
+      baroffsetTop: 200,
+      barHeight: 500,
+      isHoverBtn: false,
+      isHoverLeftBtn: true,
+      preOrNextMapName:'',
+      message:null,
+      imgSrc:'',
+
+    },
+    methods: {
+      //进入左右箭头
+      enterArrowSrc(type) {
+        this.isHoverBtn = true;
+        var curIndex = this.allMapData.indexOf(parseInt(this.mapId));
+        // -1 左箭头 1 右箭头
+        switch (type) {
+          case -1:
+            this.leftArrow = './images/选中-左.png';
+            if (curIndex == 0) {
+              this.preOrNextMapName = '已经是第一张！';
+              return
+            }
+            break;
+          case 1:
+            this.rightArrow = './images/选中-右.png';
+            if (curIndex == this.allMapData.length - 1) {
+              this.preOrNextMapName = '已经是最后一张！';
+              return
+            }
+
+            break;
+          default:
+            // statements_def
+            break;
+        }
+
+        if(this.mapId == -1) {
+           this.isHoverLeftBtn = type == -1 ? true:false;
+           this.preOrNextMapName = '当代图不能切换！';
+           return;
+        }
+
+        ApiTransfer('get', '/resource/detail', JSON.stringify({ resourceid: this.allMapData[curIndex + type] }), (resFromWinF) => {
+           resFromWinF = JSON.parse(resFromWinF);
+           if (resFromWinF.Success) {
+              this.isHoverLeftBtn = type == -1 ? true:false;
+              this.preOrNextMapName = resFromWinF.Data.Title;
+            }else {
+              ShowMessage(resFromWinF.Description)
+            }
+        })
+      },
+      leaveArrowSrc(type) {
+        this.isHoverBtn = false;
+        // -1 左箭头 1 右箭头
+        switch (type) {
+          case -1:
+            this.leftArrow = './images/未选中-左.png';
+            break;
+          case 1:
+            this.rightArrow = './images/未选中-右.png';
+            break;
+          default:
+            // statements_def
+            break;
+        }
+      },
+      //上下张切换函数
+      pageExchange(type) {
+        var curIndex = this.allMapData.indexOf(parseInt(this.mapId));
+
+        if(curIndex == -1) {
+           this.message.showMessage('error','当代图没有下一张！');
+           return;
+        }
+        // type -1 上一张  1 下一张
+        switch (type) {
+          case -1:
+            if (curIndex == 0) {
+              this.message.showMessage('warming','已经是第一张！');
+              return
+            }
+            // this.countLeft -= (this.winWidth * 0.95 - 0.3);
+            // this.flexMove1(this.bookIframeWindow.document.body, this.countLeft)
+            break;
+          case 1:
+            if (curIndex == this.allMapData.length - 1) {
+              this.message.showMessage('warming','已经是最后一张！');
+              return
+            }
+
+            // this.countLeft += (this.winWidth * 0.95 + 0.3);
+            // this.flexMove1(this.bookIframeWindow.document.body, this.countLeft)
+            break;
+          default:
+            // statements_def
+            break;
+        }
+
+        if (curIndex !== -1) {
+          if (env == 'dev') {
+            this.getMapData(this.allMapData[curIndex + type], 0);
+          } else if (env == 'prod') {
+             //验证上下张地图是否已经被下载过
+
+             GetDownLoadedResources(this.allMapData[curIndex + type]+'',localStorage.getItem('userId'),(hasDownLoadedContent)=>{
+                hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+
+                if(hasDownLoadedContent.length !== 0) {
+                    this.isHotAreaShow = false;
+
+                    // ChangeDpi(nativeUrl,(delNativeUrl)=>{
+                    this.getMapData(this.allMapData[curIndex + type], 0, hasDownLoadedContent[0].FilePath, () => {
+                      //回调
+                      this.mapId = this.allMapData[curIndex + type];
+                      //检测当前地图是否被收藏
+                      this.gethasCollect();
+
+                      //设置当然窗口名
+                      SetTabTitle(hasDownLoadedContent[0].Title,GetFormId());
+                      //切换后立即计算新地图热区位置
+                      this.imagesUrls.forEach((item, index) => {
+                        item.regions.forEach((regionItem, indexReg) => {
+                          
+                          regionItem.width = 2 * this.windowWidth / item.imgWidth * regionItem.Radius * item.scrollSize / 100;
+                          regionItem.height = 2 * this.windowWidth / item.imgWidth * regionItem.Radius * item.scrollSize / 100;
+
+                          regionItem.width = regionItem.width >= 20 ? 　regionItem.width : 20;
+                          regionItem.height = regionItem.height >= 20 ? 　regionItem.height : 20;
+
+                          if (this.mapId == 1620 || item.name.indexOf('唐时期全图一') != -1) {
+                            regionItem.left = (regionItem.CenterX - 100) / item.imgWidth * item.imgScrollWidth - regionItem.width/2;
+                          } else {
+                            regionItem.left = (regionItem.CenterX + 120) / item.imgWidth * item.imgScrollWidth - regionItem.width/2;
+                          }
+
+                          regionItem.top = regionItem.CenterY / item.imgHeight * item.imgScrollHeight - regionItem.height/2;
+
+                          // regionItem.width = regionItem.iniWidth * item.scrollSize/100;
+                          // regionItem.height = regionItem.iniHeight * item.scrollSize/100;
+                        })
+                        this.$set(this.imagesUrls, index, item);
+                      })
+
+
+                      setTimeout(() => {　
+                        this.isHotAreaShow = this.saveHotAreaState ? true : false;　
+                      }, 100)
+
+
+                    });
+                }else {
+                  //该张地图没有被下载过
+                  this.loading = true;
+                  this.downLoadPercent = 0;
+
+                  ApiTransfer('get', '/resource/detail', JSON.stringify({ resourceid: this.allMapData[curIndex + type] }), (resFromWinF) => {
+                    resFromWinF = JSON.parse(resFromWinF);
+                    var data = {
+                      resourceid: this.allMapData[curIndex + type],
+                      fileid: resFromWinF.Data.DefaultFileId,
+                      isPC: true,
+                      type: 3,
+                      userid: localStorage.getItem('userId'),
+                      source: null,
+                      title: resFromWinF.Data.Title,
+                    }
+                    this.downLoadMapName = resFromWinF.Data.Title;
+
+
+                    //多线程异步下载
+                    DownLoadProgress('get', '/file/stream', JSON.stringify(data), (progress, nativeUrl,err) => {
+                      if(err) {
+                        OpenForm(480,500,'/index.html#/userCenter','个人信息');
+                        localStorage.setItem('fromWhere',3);
+                        this.loading = false;
+                      }else {
+                        //获取下载进度
+                        if (Math.floor(progress) >= 100) {
+                          this.downLoadPercent = 100; 
+                          this.loading = false;
+                          this.isHotAreaShow = false;
+
+                          // ChangeDpi(nativeUrl,(delNativeUrl)=>{
+                          this.getMapData(this.allMapData[curIndex + type], 0, nativeUrl, () => {
+                            //回调
+                            this.mapId = this.allMapData[curIndex + type];
+
+                            
+                            //检测当前地图是否被收藏
+                            this.gethasCollect();
+                            //设置当然窗口名
+                            SetTabTitle(this.downLoadMapName,GetFormId());
+                            //切换后立即计算新地图热区位置
+                            this.imagesUrls.forEach((item, index) => {
+                              item.regions.forEach((regionItem, indexReg) => {
+                                
+                                regionItem.width = 2 * this.windowWidth / item.imgWidth * regionItem.Radius * item.scrollSize / 100;
+                                regionItem.height = 2 * this.windowWidth / item.imgWidth * regionItem.Radius * item.scrollSize / 100;
+
+                                regionItem.width = regionItem.width >= 20 ? 　regionItem.width : 20;
+                                regionItem.height = regionItem.height >= 20 ? 　regionItem.height : 20;
+
+                                if (this.mapId == 1620 || item.name.indexOf('唐时期全图一') != -1) {
+                                  regionItem.left = (regionItem.CenterX - 100) / item.imgWidth * item.imgScrollWidth - regionItem.width/2;
+                                } else {
+                                  regionItem.left = (regionItem.CenterX + 120) / item.imgWidth * item.imgScrollWidth - regionItem.width/2;
+                                }
+
+                                regionItem.top = regionItem.CenterY / item.imgHeight * item.imgScrollHeight - regionItem.height/2;
+
+                                // regionItem.width = regionItem.iniWidth * item.scrollSize/100;
+                                // regionItem.height = regionItem.iniHeight * item.scrollSize/100;
+                              })
+                              this.$set(this.imagesUrls, index, item);
+                            })
+
+
+                            setTimeout(() => {　
+                              this.isHotAreaShow = this.saveHotAreaState ? true : false;　
+                            }, 100)
+
+
+                          });
+                        } else {
+                          this.downLoadPercent = Math.floor(progress);
+                        }
+                      }
+                      
+                    });
+                  })
+                }  
+            });
+
+
+            
+
+            // //下面是配合winform异步获取数据
+            // ApiTransfer('get','/resource/defaultfile_open',JSON.stringify(data),(resFromWinF)=>{
+            //     resFromWinF = JSON.parse(resFromWinF);
+            //     var downloadUrl = resFromWinF.Data.Url;
+            //     this.downLoadMapName = downloadUrl.slice(downloadUrl.lastIndexOf('/')+1,downloadUrl.lastIndexOf('jpg')-1);
+
+            //     var downdata = {
+            //           downloadUrl:downloadUrl,
+            //           resourceid:this.allMapData[curIndex + type]+'',
+            //           type:3,
+            //           title:this.downLoadMapName,
+            //           source:null,
+            //           userid:localStorage.getItem('userId')
+            //        }
+
+            //     // var nativeUrl = DownLoad(JSON.stringify(downdata));
+
+            //     DownLoad(JSON.stringify(downdata),(nativeUrl1)=>{
+            //         nativeUrl = nativeUrl1;
+            //         GetDownLoadProgress(downloadUrl,(progress)=>{
+            //            if (Math.floor(progress) >= 100) {
+            //                 this.downLoadPercent = 100;
+            //                 this.loading = false;
+            //                 this.isHotAreaShow = false;
+
+            //                 // ChangeDpi(nativeUrl,(delNativeUrl)=>{
+            //                     this.getMapData(this.allMapData[curIndex + type],0,nativeUrl,()=>{
+            //                     //回调
+            //                         this.mapId = this.allMapData[curIndex + type];
+            //                         //切换后立即计算新地图热区位置
+            //                         this.imagesUrls.forEach((item, index) => {
+            //                             item.regions.forEach((regionItem,indexReg)=>{
+            //                                   if(this.mapId == 1620 || item.name.indexOf('唐时期全图一') != -1) {
+            //                                      regionItem.left = (regionItem.CenterX - 100)/item.imgWidth*item.imgScrollWidth;
+            //                                   }else {
+            //                                      regionItem.left = (regionItem.CenterX + 120)/item.imgWidth*item.imgScrollWidth;
+            //                                   }
+
+            //                                   regionItem.top =  regionItem.CenterY/item.imgHeight*item.imgScrollHeight;
+            //                                   regionItem.width = 2 * this.windowWidth/item.imgWidth*regionItem.Radius*item.scrollSize/100;
+            //                                   regionItem.height = 2 * this.windowWidth/item.imgWidth*regionItem.Radius*item.scrollSize/100;
+
+            //                                   regionItem.width = regionItem.width >= 20 ?　regionItem.width: 20;
+            //                                   regionItem.height = regionItem.height >= 20 ?　regionItem.height: 20;
+
+            //                                   // regionItem.width = regionItem.iniWidth * item.scrollSize/100;
+            //                                   // regionItem.height = regionItem.iniHeight * item.scrollSize/100;
+            //                               })
+            //                             this.$set(this.imagesUrls,index,item);
+            //                          })
+
+
+            //                         setTimeout(()=>{
+            //                         　  this.isHotAreaShow = this.saveHotAreaState ? true:false;　
+            //                         }, 200)
+
+
+
+            //                         clearInterval(setTime);
+
+            //                     });
+            //                 // });
+            //             } else {
+            //                 this.downLoadPercent = Math.floor(progress);
+            //             }
+            //         })
+            //     })
+
+            //     // ShowMessage(nativeUrl);
+            //     // var setTime = setInterval(() => {
+            //     //     if (this.downLoadPercent >= 100) {
+            //     //         this.downLoadPercent = 100;
+            //     //         this.loading = false;
+            //     //         this.isHotAreaShow = false;
+
+            //     //         ChangeDpi(nativeUrl,(delNativeUrl)=>{
+            //     //             this.getMapData(this.allMapData[curIndex + type],0,delNativeUrl,()=>{
+            //     //             //回调
+            //     //                 this.mapId = this.allMapData[curIndex + type];
+            //     //                 //切换后立即计算新地图热区位置
+            //     //                 this.imagesUrls.forEach((item, index) => {
+            //     //                     item.regions.forEach((regionItem,indexReg)=>{
+            //     //                           if(this.mapId == 1620 || item.name.indexOf('唐时期全图一') != -1) {
+            //     //                              regionItem.left = (regionItem.CenterX - 100)/item.imgWidth*item.imgScrollWidth;
+            //     //                           }else {
+            //     //                              regionItem.left = (regionItem.CenterX + 120)/item.imgWidth*item.imgScrollWidth;
+            //     //                           }
+
+            //     //                           regionItem.top =  regionItem.CenterY/item.imgHeight*item.imgScrollHeight;
+            //     //                           regionItem.width = this.windowWidth/item.imgWidth*regionItem.Radius*item.scrollSize/100;
+            //     //                           regionItem.height = this.windowWidth/item.imgWidth*regionItem.Radius*item.scrollSize/100;
+
+            //     //                           regionItem.width = regionItem.width >= 20 ?　regionItem.width: 20;
+            //     //                           regionItem.height = regionItem.height >= 20 ?　regionItem.height: 20;
+            //     //                       })
+            //     //                     this.$set(this.imagesUrls,index,item);
+            //     //                  })
+
+
+            //     //                 setTimeout(()=>{
+            //     //                 　  this.isHotAreaShow = this.saveHotAreaState ? true:false;　
+            //     //                 }, 200)
+
+
+
+            //     //                 clearInterval(setTime);
+
+            //     //             });
+            //     //         });
+
+            //     //     } else {
+            //     //         this.downLoadPercent = Math.floor(GetDownLoadProgress(downloadUrl));
+            //     //     }
+
+
+            //     // }, 500)
+
+
+
+
+
+
+            // });
+
+
+
+          }
+        }
+      },
+      //移除某张地图
+      closeOneMap(index) {
+        this.picked = '图片一';
+        this.imagesUrls.splice(index, 1);
+
+        this.imagesUrls[0].opacity = 100;
+        this.btnPosition = this.barHeight / 2;
+        
+        if(this.imagesUrls[0].name.indexOf('中华人民共和国') !== -1) {
+           this.mapId = -1;
+           ChangeFavoriteIcon(false, '地图',2);
+        }else {
+           this.mapId = this.imagesUrls[0].mapId;
+           //检测当前地图是否被收藏
+           this.gethasCollect();
+        }
+
+
+        //设置禁用按钮
+        IsMapCover(false);
+        //设置当前窗口名称
+        SetTabTitle(this.imagesUrls[0].name,GetFormId());
+
+      },
+      // 打开添加任意图
+      openLibCate(e) {
+        if (this.libLeft <= -280) {
+          var setTime = setInterval(() => {
+            if (this.libLeft >= -20) {
+              this.libLeft = 0;
+              clearInterval(setTime);
+              return;
+            }
+            this.libLeft += 20;
+          }, 16)
+        } else if (this.libLeft >= -20) {
+          var setTime = setInterval(() => {
+            if (this.libLeft <= -280) {
+              this.libLeft = -300;
+              clearInterval(setTime);
+              return;
+            }
+            this.libLeft -= 20;
+          }, 16)
+        }
+      },
+      //关闭任意图窗口
+      closeLibOper(type) {
+        if (type == -1) return;
+        if (this.libLeft >= -280) {
+          var setTime = setInterval(() => {
+            if (this.libLeft <= -280) {
+              this.libLeft = -300;
+              clearInterval(setTime);
+              return;
+            }
+            this.libLeft -= 20;
+          }, 16)
+        }
+      },
+
+      //开始下载
+      startDownLoad(item, index) {
+        //如果当前已经是这张图，就不允许再叠加
+        if(item.Id == this.mapId) {
+          this.message.showMessage('error','不能对比同一张地图！');
+          return;
+        } 
+
+        if (item.hasDownLoad) {
+          //防止页面没刷新，用户在下载中心删除了地图，再点这个地图报错，需要再次验证是否有本地文件
+          GetDownLoadedResources(item.Id+'',localStorage.getItem('userId'),(hasDownLoadedContent)=>{
+
+            hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+
+            if(hasDownLoadedContent.length == 0) {
+              // //没有这个文件
+              this.message.showMessage('error','该文件可能已损坏或被删除,请重新下载！');
+              item.hasDownLoad = false;
+              item.startDownLoad = false;
+              item.downLoadPercent = 0;
+              item.showHasDownLoad = false;
+              this.$set(this.maplistData, index, item)
+
+            }else {
+              addCurMap('', item.Id, item);
+              this.closeLibOper();
+            }
+          });
+        }else {
+          this.closeLibOper(-1);
+
+          item.startDownLoad = true;
+          item.top = 0;
+
+          if (env == 'dev') {
+            var setTime = setInterval(() => {
+              if (item.downLoadPercent >= 100) {
+                item.downLoadPercent = 100;
+                item.hasDownLoad = true;
+
+                setTimeout(() => {
+                  var setTime1 = setInterval(() => {
+                    if (item.top <= -153) {
+                      item.top = -153;
+                      clearInterval(setTime1);
+                    } else {
+                      item.top -= 2;
+                    }
+                    this.$set(this.maplistData, index, item)
+                  }, 1)
+                }, 500)
+                clearInterval(setTime);
+
+              } else {
+                item.downLoadPercent += 1;
+              }
+              this.$set(this.maplistData, index, item)
+            }, 1)
+          } else if (env == 'prod') {
+
+
+            var data = {
+              resourceid: item.Id,
+              userid: localStorage.getItem('userId'),
+              fileid: item.DefaultFileId,
+              isPC: true,
+              type: 3,
+              source: item.Source,
+              title: item.Title,
+            }
+
+
+            //多线程异步下载
+            DownLoadProgress('get', '/file/stream', JSON.stringify(data), (progress, nativeUrl,err) => {
+              
+                if(err) {
+                      OpenForm(480,500,'/index.html#/userCenter','个人信息');
+                      localStorage.setItem('fromWhere',3);
+                      item.startDownLoad = false;
+                }else {
+                    item.nativeUrl = nativeUrl;
+                    //获取下载进度
+                    if (Math.floor(progress) >= 100) {
+                      item.downLoadPercent = 100;
+                      item.hasDownLoad = true;
+
+                      addCurMap('', item.Id, item);
+                    } else {
+                      item.downLoadPercent = Math.floor(progress);
+                    }
+                }
+
+                this.$set(this.maplistData, index, item)
+            });
+          }  
+        }
+
+
+      },
+      showDownIcon(item, index) {
+        if (!item.hasDownLoad) item.showHasDownLoad = !item.showHasDownLoad;
+        this.$set(this.maplistData, index, item)
+      },
+      //获取表格数据，包括搜索结果
+      getTableData(keyword = '', ps = 5000, cp = 1) {
+        if (env == 'dev') {
+          this.myAjax(baseUrl + '/resource/list?keyword=' + keyword + '&ps=' + ps + '&cp=' + cp + '&type=3', 'GET', (res) => {
+            res = JSON.parse(res);
+            this.maplistData = res.Data.ItemList;
+            if (this.maplistData.length !== 0) {
+              this.maplistData.forEach((item, index) => {
+                item['hasDownLoad'] = false;
+                item['showHasDownLoad'] = true;
+                item['startDownLoad'] = false;
+                item['downLoadPercent'] = 0;
+                item['top'] = -153;
+              })
+            }
+          })
+        } else if (env == 'prod') {
+          // var resFromWinF = ApiTransfer('get',"/resource/list",'keyword='+keyword+'&ps='+ps+'&cp='+cp+'&type=3');
+          // resFromWinF = JSON.parse(resFromWinF);
+          // if(resFromWinF.Code == 200) {
+          //     this.maplistData = resFromWinF.Data.ItemList;
+          //     if (this.maplistData.length !== 0) {
+          //         var listIds = [];
+          //         this.maplistData.forEach((item, index) => {
+          //             item['hasDownLoad'] = false;
+          //             item['showHasDownLoad'] = true;
+          //             item['startDownLoad'] = false;
+          //             item['downLoadPercent'] = 0;
+          //             listIds.push(item.Id)
+          //         })
+
+          //         //向后台发送缓存验证,获取已经下载过的文件
+
+          //           //获取已下载的数据
+          //           if(localStorage.getItem('userId') && localStorage.getItem('userId') !== '') {
+          //               var hasDownLoadedContent = GetDownLoadedResources(listIds.join(','));
+          //                   hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+          //               if(hasDownLoadedContent.length == 0) return; 
+
+          //               hasDownLoadedContent.forEach((getItem,getIndex)=>{
+          //                  this.maplistData.forEach((mapItem,mapIndex)=>{
+          //                      if(getItem.ResourceId == mapItem.Id) {
+          //                          mapItem['hasDownLoad'] = true;
+          //                          mapItem['nativeUrl'] = getItem.FilePath;
+          //                          mapItem['downLoadPercent'] = 100;
+          //                      }
+          //                  })
+          //               })
+          //           }
+          //     }
+          // }else {
+          //     ShowMessage('出现未知错误，请关闭重试！');
+          // };
+
+
+          var data = {
+            keyword: keyword,
+            ps: ps,
+            cp: cp,
+            type: 3
+          }
+
+          //下面是配合winform异步获取数据
+          ApiTransfer('get', "/resource/list", JSON.stringify(data), (resFromWinF) => {
+            resFromWinF = JSON.parse(resFromWinF);
+            if (resFromWinF.Code == 200) {
+              this.maplistData = resFromWinF.Data.ItemList;
+              if (this.maplistData.length !== 0) {
+                var listIds = [];
+                this.maplistData.forEach((item, index) => {
+                  item['hasDownLoad'] = false;
+                  item['showHasDownLoad'] = true;
+                  item['startDownLoad'] = false;
+                  item['downLoadPercent'] = 0;
+                  listIds.push(item.Id)
+                })
+
+                //向后台发送缓存验证,获取已经下载过的文件
+
+                //获取已下载的数据
+                if (localStorage.getItem('userId') && localStorage.getItem('userId') !== '') {
+                  // var hasDownLoadedContent = GetDownLoadedResources(listIds.join(','));
+                  //     hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+                  // if(hasDownLoadedContent.length == 0) return; 
+
+                  // hasDownLoadedContent.forEach((getItem,getIndex)=>{
+                  //    this.maplistData.forEach((mapItem,mapIndex)=>{
+                  //        if(getItem.ResourceId == mapItem.Id) {
+                  //            mapItem['hasDownLoad'] = true;
+                  //            mapItem['nativeUrl'] = getItem.FilePath;
+                  //            mapItem['downLoadPercent'] = 100;
+                  //        }
+                  //    })
+                  // })
+
+
+
+                  //异步获取下载
+                  GetDownLoadedResources(listIds.join(','), localStorage.getItem('userId'), (hasDownLoadedContent) => {
+                    hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+                    if (hasDownLoadedContent.length == 0) return;
+
+                    hasDownLoadedContent.forEach((getItem, getIndex) => {
+                      this.maplistData.forEach((mapItem, mapIndex) => {
+                        if (getItem.ResourceId == mapItem.Id) {
+                          mapItem['hasDownLoad'] = true;
+                          mapItem['nativeUrl'] = getItem.FilePath;
+                          mapItem['downLoadPercent'] = 100;
+                           this.$set(this.maplistData,mapIndex,mapItem);
+                        }
+                      })
+                    })
+                  })
+                }
+              }
+            } else {
+              ShowMessage('出现未知错误，请关闭重试！');
+            };
+          });
+        }
+      },
+      //添加或取消收藏
+      addCollect() {
+        //验证有没有用户信息
+        var hasUserId = volidUserId();
+        if (!hasUserId) return;
+
+        if(this.mapId == -1) {
+           this.message.showMessage('error','当代图无法收藏！');
+           return;
+        }
+
+        if (env == "dev") {
+          this.$http.post("/favorite/createorcancel", {
+              objectid: this.mapId,
+              objecttype: 1, //1图书章节地图2人物事件
+              userid: localStorage.getItem("userId")
+            })
+            .then((res) => {
+              if (res.data.Description == "收藏成功") {
+                ChangeFavoriteIcon(true, '地图',2);
+                ShowMessage('收藏成功！');
+              } else {
+                ChangeFavoriteIcon(false, '地图',2);
+                ShowMessage('取消收藏成功！');
+              }
+            })
+            .catch((err) => {
+              console.log(err)
+            })
+        } else if (env == "prod") {
+          // var winResult = ApiTransfer('post','/favorite/createorcancel','objectid='+this.mapId+'&objecttype=1&userid='+localStorage.getItem("userId"));
+
+          // winResult=JSON.parse(winResult)
+          // if(winResult.Success){
+          //     // this.hasCollect = !this.hasCollect;
+          //     if (winResult.Description=="收藏成功") {
+          //         ShowMessage('收藏成功！');
+          //     } else {
+          //         ShowMessage('取消收藏成功！')
+          //     }
+          // }
+
+          var data = {
+            objectid: this.mapId,
+            objecttype: 1,
+            userid: localStorage.getItem("userId")
+          }
+
+          //下面是配合winform异步获取数据
+          ApiTransfer('post', '/favorite/createorcancel', JSON.stringify(data), (winResult) => {
+            winResult = JSON.parse(winResult)
+            if (winResult.Success) {
+              // this.hasCollect = !this.hasCollect;
+              if (winResult.Description == "收藏成功") {
+                ChangeFavoriteIcon(true, '地图',2);
+                this.message.showMessage('success','收藏成功！');
+              } else {
+                ChangeFavoriteIcon(false, '地图',2);
+                this.message.showMessage('success','取消收藏成功！');
+              }
+            }
+          });
+        }
+      },
+
+      //设置当前地图，哪张地图是活跃地图
+      setPicked(type) {
+        // var nodesNum = this.$refs.controlBar.children.length;
+        // switch(type) {
+        //      case 1:
+        //          if(nodesNum == 1) return;
+        //          this.picked = '图片一';
+        //          break;
+        //      case 2:
+        //          this.picked = '图片二';
+        //          break;
+        //      case 3:
+        //          this.picked = '全部';
+        //          break;
+        //      default:
+        //          break;            
+        //  } 
+      },
+      handleChangeOpacity(e) {
+        this.btnPosition = this.baroffsetTop + this.barHeight - e.pageY;
+
+        this.opacityPercent = this.btnPosition / this.barHeight * 100;
+        // if (this.picked == '全部') {
+        //     this.imagesUrls.forEach((item, index) => {
+        //         this.handleOpacityOperate(type, item, 0);
+        //     })
+        // } else if (this.picked == '图片一') {
+        this.handleOpacityOperate();
+        // } else {
+        //     this.handleOpacityOperate(type, this.imagesUrls[1], 2);
+        // }
+
+      },
+      //点击改变透明度
+      handleOpacityOperate(item, percent) {
+        this.imagesUrls[0].opacity = this.opacityPercent;
+        this.imagesUrls[1].opacity = 100 - this.opacityPercent;
+
+
+        this.$nextTick(() => {
+          if (this.imagesUrls[0].opacity >= 50) {
+            this.imagesUrls[0].zIndex = 1;
+            this.imagesUrls[1].zIndex = 0;
+          } else {
+            this.imagesUrls[0].zIndex = 0;
+            this.imagesUrls[1].zIndex = 1;
+          }
+        })
+      },
+      btnStart() {
+        this.btnScroll = true;
+      },
+      btnMove(e) {
+        if (this.btnScroll) {
+          //这是按钮的位置
+          this.btnPosition = (1 - (e.pageY - this.baroffsetTop) / this.barHeight) * this.barHeight;
+
+          if (this.btnPosition <= 0) {
+            this.btnPosition = 0;
+          } else if (this.btnPosition >= this.barHeight) {
+            this.btnPosition = this.barHeight;
+          }
+
+          //同时改变进度条
+          this.opacityPercent = this.btnPosition / this.barHeight * 100;
+          //改变图片透明度
+          this.handleOpacityOperate();
+
+        }
+      },
+      btnEnd() {
+        this.btnScroll = false;
+      },
+      //透明度改变的操作函数  
+
+
+      //滚动缩放图片大小
+      scrollImg(e, item1) {
+
+        var type = 1;
+        if (e.wheelDelta < 0 || e.detail > 0) {
+          type = -1;
+        } else {
+          type = 1;
+        }
+        //获取放大还是缩小
+
+        // if(this.picked ==='全部'){
+        this.imagesUrls.forEach((item, index) => {
+          this.handleScrollOperate(type, item, 0, index, e)
+        })
+        // }else if(this.picked ==='图片一'){
+        //       var item = this.imagesUrls[0];
+        //   this.handleScrollOperate(type,item,1)
+        // }else if(this.picked ==='图片二'){
+        //       var item = this.imagesUrls[1];
+        //       this.handleScrollOperate(type,item,2)
+        // }
+
+
+      }, //缩放图片
+
+
+      //点击缩放图片
+      handleScrollImg(type) {
+        // -1 代表缩小，1代表放大
+        // 判断选择的是图片几
+        // if(this.picked ==='全部'){
+        this.imagesUrls.forEach((item, index) => {
+          this.handleScrollOperate(type, item, 0, index)
+        })
+        // }else if(this.picked ==='图片一'){
+        //       var item = this.imagesUrls[0];
+        //       this.handleScrollOperate(type,item,1)
+        // }else if(this.picked ==='图片二'){
+        //       var item = this.imagesUrls[1];
+        //       this.handleScrollOperate(type,item,2)
+        // }
+      },
+      //缩放的操作函数
+      handleScrollOperate(type, item, percent, index, e) {
+        if (this.hotAreaTimer) {
+          clearTimeout(this.hotAreaTimer);
+          this.hotAreaTimer = null;
+        }
+        //  else {
+        //   this.saveHotAreaState = this.isHotAreaShow;
+        // }
+
+        this.isHotAreaShow = false;
+
+        e = e || window.event;
+
+        if (type == 1) { //放大
+          if (item.imgScrollWidth >= 2.5 * item.imgWidth) {
+            this.hotAreaTimer = setTimeout(() => {　
+              this.isHotAreaShow = this.saveHotAreaState ? true : false;　
+            }, 100)
+            return
+          }
+          if (percent == 0) {
+
+            //整体的缩放比
+            if (this.imagesUrls.length == 2) {
+              this.scrollPercent += 5;
+            } else {
+              this.scrollPercent += 10;
+            };
+
+            if (this.scrollPercent >= 100) {
+              // this.scrollPercent = 100;
+            }
+            // 处理多图片不同步超出100%的bug   
+            item.scrollPercent += 10;
+          } else {
+            this.scrollPercent += 10;
+            item.scrollPercent += 10;
+          } //左侧缩放条缩放进度
+
+          item.scrollSize *= 1.1;
+          item.imgScrollWidth *= 1.1;
+          item.imgScrollHeight *= 1.1;
+
+        } else if (type == -1) { //缩小
+
+          if (percent == 0) {
+            //整体的缩放比
+            if (this.imagesUrls.length == 2) {
+              this.scrollPercent -= 5;
+            } else {
+              this.scrollPercent -= 10;
+            };
+            if (this.scrollPercent <= 0) {
+              this.scrollPercent = 0;
+            }
+            // 处理多图片不同步超出100%的bug
+            item.scrollPercent -= 10;
+          } else {
+            this.scrollPercent -= 10;
+            item.scrollPercent -= 10;
+          } //
+
+          item.scrollSize /= 1.1;
+          item.imgScrollWidth /= 1.1;
+
+
+          //当图片宽度与屏幕宽度一致时，保持宽度一致
+          if (item.imgScrollWidth <= this.windowWidth) {
+            item.scrollSize = 100;
+
+            if(item.imgWidth/ item.imgHeight <= this.windowWidth/ this.windowHeight) {
+                item.imgScrollHeight = this.windowHeight;
+                item.imgScrollWidth = item.imgScrollHeight * item.imgWidth / item.imgHeight;
+
+            }else {
+                item.imgScrollWidth = this.windowWidth;
+                item.imgScrollHeight = item.imgScrollWidth * item.imgHeight / item.imgWidth;
+            } 
+
+
+            this.$nextTick(() => {
+                item.left = (this.windowWidth - item.imgScrollWidth) / 2;
+                item.top = (this.windowHeight - item.imgScrollHeight) / 2;
+                
+                if(item.imgWidth/ item.imgHeight > this.windowWidth/ this.windowHeight) {
+                    this.startMove(e, item, index);
+                    this.moveImg(e, item);
+                    this.stopMove();
+                }
+              
+                this.imagesUrls.forEach((item1, index) => {
+                    item1.regions.forEach((regionItem, indexReg) => {
+                      
+                      regionItem.width = 2 * this.windowWidth / item1.imgWidth * regionItem.Radius * item1.scrollSize / 100;
+                      regionItem.height = 2 * this.windowWidth / item1.imgWidth * regionItem.Radius * item1.scrollSize / 100;
+
+                      regionItem.width = regionItem.width >= 20 ? 　regionItem.width : 20;
+                      regionItem.height = regionItem.height >= 20 ? 　regionItem.height : 20;
+
+                      if (this.mapId == 1620 || item.name.indexOf('唐时期全图一') != -1) {
+                        regionItem.left = (regionItem.CenterX - 100) / item.imgWidth * item.imgScrollWidth - regionItem.width/2;
+                      } else {
+                        regionItem.left = (regionItem.CenterX + 120) / item.imgWidth * item.imgScrollWidth - regionItem.width/2;
+                      }
+                      regionItem.top = regionItem.CenterY / item1.imgHeight * item1.imgScrollHeight - regionItem.height/2;
+
+                    })
+                    this.$set(this.imagesUrls, index, item1);
+                  })
+              })
+
+              this.hotAreaTimer = setTimeout(() => {　
+                this.isHotAreaShow = this.saveHotAreaState ? true : false;　
+              }, 100)
+
+            return;
+          }
+
+          item.imgScrollHeight /= 1.1;
+        }
+
+
+        //处理点击的是热区的bug
+        var eTarget  = null;
+        if (e.target.nodeName == 'DIV' && e.target.className == 'regionClass') {
+          eTarget = e.target.parentNode.children[0];
+        }else if(e.target.nodeName == 'DIV' && e.target.className == 'regionClass-center') {
+          eTarget = e.target.parentNode.parentNode.children[0];
+        }
+        
+        eTarget = eTarget || e.target;
+
+        var preX = eTarget.offsetWidth;
+        var preY = eTarget.offsetHeight;
+        var preLeft = eTarget.parentNode.offsetLeft;
+        var preTop = eTarget.parentNode.offsetTop;
+
+        var scaleX = (e.clientX - preLeft) / preX; //比例
+        var scaleY = (e.clientY - preTop) / preY;
+
+
+        this.$nextTick(() => {
+          //处理缩放后的图片位置，是按中心放大，还是按鼠标指的位置放大
+          //这部分是按中心放大
+          // item.left -= (e.target.offsetWidth - preX) / 2;
+          // item.top -= (e.target.offsetHeight - preY) / 2;
+
+          //下面是按鼠标位置放大
+          item.left = preLeft - scaleX * (eTarget.offsetWidth - preX);
+          item.top = preTop - scaleY * (eTarget.offsetHeight - preY);
+
+
+          if (type !== 1) {
+            //处理缩小时边界问题
+            // 左边界
+            if (Math.abs(item.left) < Math.abs(item.imgScrollWidth - item.imgScrollWidth / 1.1)) {
+              item.left = 0;
+
+            } else if ((item.imgScrollWidth - this.windowWidth - Math.abs(item.left)) < Math.abs(item.imgScrollWidth - item.imgScrollWidth / 1.1)) {
+              //右边界
+              item.left = this.windowWidth - item.imgScrollWidth;
+            }
+
+            if (Math.abs(item.top) < Math.abs(item.imgScrollHeight - item.imgScrollHeight / 1.1)) {
+              // 上边界
+              item.top = 0
+            } else if ((item.imgScrollHeight - this.windowHeight - Math.abs(item.top)) < Math.abs(item.imgScrollHeight - item.imgScrollHeight / 1.1)) {
+              //下边界
+              item.top = this.windowHeight - item.imgScrollHeight;
+            }
+
+
+            // 判断上下同时脱离边界
+            if (item.imgScrollHeight <= this.windowHeight) {
+              item.top = (this.windowHeight - item.imgScrollHeight) / 2;
+            }
+
+
+
+
+          }
+
+          this.imagesUrls.forEach((item1, index) => {
+            item1.regions.forEach((regionItem, indexReg) => {
+              
+              regionItem.width = 2 * this.windowWidth / item1.imgWidth * regionItem.Radius * item1.scrollSize / 100;
+              regionItem.height = 2 * this.windowWidth / item1.imgWidth * regionItem.Radius * item1.scrollSize / 100;
+
+              regionItem.width = regionItem.width >= 20 ? 　regionItem.width : 20;
+              regionItem.height = regionItem.height >= 20 ? 　regionItem.height : 20;
+
+              if (this.mapId == 1620 || item.name.indexOf('唐时期全图一') != -1) {
+                regionItem.left = (regionItem.CenterX - 100) / item.imgWidth * item.imgScrollWidth - regionItem.width/2;
+              } else {
+                regionItem.left = (regionItem.CenterX + 120) / item.imgWidth * item.imgScrollWidth - regionItem.width/2;
+              }
+              regionItem.top = regionItem.CenterY / item1.imgHeight * item1.imgScrollHeight - regionItem.height/2;
+
+            })
+            this.$set(this.imagesUrls, index, item1);
+          })
+
+
+          this.hotAreaTimer = setTimeout(() => {　
+            this.isHotAreaShow = this.saveHotAreaState ? true : false;　
+          }, 100)
+        })
+        
+
+      },
+
+
+      //拖拽函数
+      startMove(e, item, index) {
+        
+        //处理点击的是热区的bug
+        var eTarget  = null;
+        if (e.target.nodeName == 'DIV' && e.target.className == 'regionClass') {
+          eTarget = e.target.parentNode.children[0];
+        }else if(e.target.nodeName == 'DIV' && e.target.className == 'regionClass-center') {
+          eTarget = e.target.parentNode.parentNode.children[0];
+        }
+
+        eTarget = eTarget || e.target;
+
+
+        // this.imagesUrls.forEach((citem, cindex) => {
+        //     citem.zIndex = 0;
+        //     if (index == cindex) {
+        //         citem.zIndex = 1;
+        //     }
+        // })
+        // if (index == 0) {
+        //     this.picked = '图片一'
+        // } else if (index == 1) {
+        //     this.picked = '图片二'
+        // }
+        
+     
+        //同步拖拽
+        this.imagesUrls.forEach((citem, cindex) => {
+          if(citem.imgWidth/ citem.imgHeight <= this.windowWidth/ this.windowHeight) {
+             //这个时候屏幕宽度远远大于高度，需要处理是否已经缩放小到最小
+             if(parseInt(citem.imgScrollHeight) > parseInt(this.windowHeight)) {
+               //这时图片计算高度已经等于屏幕高度，是缩放到最小位置，不允许拖拽
+               citem.isResie = true;
+               citem.clentX = e.pageX - eTarget.parentNode.offsetLeft;
+               citem.clentY = e.pageY - eTarget.parentNode.offsetTop;
+             }
+          }else {
+              citem.isResie = true;
+              citem.clentX = e.pageX - eTarget.parentNode.offsetLeft;
+              citem.clentY = e.pageY - eTarget.parentNode.offsetTop;
+          } 
+          //保存点击时候的元素坐标
+        })
+
+      }, //获取解锁图片可拖放
+      moveImg(e, item1) {
+        this.imagesUrls.forEach((item, index) => {
+          if (item.isResie) {
+            var preY = item.top;
+            var preX = item.left;
+
+            console.log(preX)
+          
+            item.left = e.pageX - item.clentX;
+            item.top = e.pageY - item.clentY;
+
+            //分情况处理X方向边界问题
+            if(item.imgWidth/ item.imgHeight > this.windowWidth/ this.windowHeight) {
+                //此时宽度小于高度
+                if (item.left > 0) {
+                  item.left = 0;
+                } else if (item.imgScrollWidth - Math.abs(item.left) < this.windowWidth) {
+                  item.left = this.windowWidth - item.imgScrollWidth;
+                }
+
+
+                  //分情况处理Y方向边界问题
+                if (item.imgScrollHeight >= this.windowHeight) {
+                  //当图片大于屏幕高度的时候
+                  if (item.top > 0) {
+                    item.top = 0
+                  } else if (item.imgScrollHeight - Math.abs(item.top) < this.windowHeight) {
+                    item.top = this.windowHeight - item.imgScrollHeight;
+                  }
+                } else {
+                  item.top = preY;
+                  return
+                }
+            }else {
+                //此时屏幕宽度远大于高度
+
+                //分情况处理Y方向边界问题
+
+                  if (item.top > 0) {
+                    item.top = 0
+                  } else if (item.imgScrollHeight - Math.abs(item.top) < this.windowHeight) {
+                    item.top = this.windowHeight - item.imgScrollHeight;
+                  }
+              
+                 //分情况处理X方向边界问题
+                 if (item.imgScrollWidth >= this.windowWidth) {
+                     if (item.left > 0) {
+                       item.left = 0
+                     } else if (item.imgScrollWidth - Math.abs(item.left) < this.windowWidth) {
+                       item.left = this.windowWidth - item.imgScrollWidth;
+                     }
+                 }else {
+                  console.log(2)
+                     item.left = preX;
+
+                     console.log(item.left)
+                     return;
+                 }
+             }
+            // 获取点击位置的坐标
+          }
+        })
+
+      }, //移动图片
+      stopMove() {
+        //同步拖拽
+        this.imagesUrls.forEach((citem, cindex) => {
+          citem.isResie = false;
+        })
+        // this.activeWindow.isResie = false;
+        // this.activeWindow = {};
+      },
+      //设置第一张图
+      setoneImg() {
+        if (this.picked == '图片一') {
+
+        } else if (this.picked == '图片二') {
+
+        } else if (this.picked == '全部') {
+
+        }
+      },
+      resize() {
+        this.windowHeight = window.innerHeight;
+        this.windowWidth = window.innerWidth;
+
+        //设置透明度bar
+        var rate = this.barHeight / (window.innerHeight/2);
+
+        //控制
+        this.barHeight = window.innerHeight/2;
+        //第二次进来后才进行位置计算
+        if(this.resizeCount > 0) {
+           this.btnPosition = this.btnPosition / rate ;
+        }else {
+           this.btnPosition = this.barHeight / 2;
+        }
+
+        this.baroffsetTop = this.$refs.opactityBarCont.offsetTop - this.barHeight / 2 + 10;
+
+        this.isHotAreaShow = false;
+
+        this.resizeCount ++;
+
+        setTimeout(() => {　
+          this.isHotAreaShow = this.saveHotAreaState ? true : false;　
+        }, 100)
+      },
+      //检测文件是否存在
+      isFileExist(bookid,index,fn) {
+
+
+        //防止页面没刷新，用户在下载中心删除了地图，再点这个地图报错，需要再次验证是否有本地文件
+        GetDownLoadedResources(bookid+'',localStorage.getItem('userId'),(hasDownLoadedContent)=>{
+
+          hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+
+          if(hasDownLoadedContent.length == 0) {
+             //没有这个文件
+              ShowMessage('该文件可能已损坏或被删除,请重新下载！');
+
+              if(index === 0) {
+                 CloseForm();
+              }else if(index == 1) {
+
+              } 
+          }else {
+             console.log(2)
+             //有这个文件
+             if(fn) fn()
+          }
+        });
+      },
+      openRegionDetail(item) {
+        //点击跳转热区
+        // // alert(item.RegionTitle)
+        //窗口失焦下点击热区，地图会莫名其妙的跳转
+        if (env == "dev") {
+          window.location.href = ymUrl + '/sectionlist?relatedregionids=' + item.RegionId;
+        } else if (env == "prod") {
+          SaveArgument('relatedregionids=' + item.RegionId);
+          // //用于高亮显示当前热区
+          // // localStorage.setItem('activeRegionId',item.RegionId);
+
+          var formId = GetFormId();
+          loadForm('/index.html#/sectionlist', '资源', item.RegionTitle+'-相关文章', true,formId,item.RegionId+'');
+          // loadForm('/index.html#/sectionlist', '资源', item.RegionTitle+'-相关章节', true);
+        }
+      },
+      // 渐进定时器
+      interVal(item, type, target) {
+        // type-0 宽  type-1 高
+        var timer = setInterval(() => {
+          if (type == 0) {
+            if (item.imgScrollWidth >= target) {
+              item.imgScrollWidth = target;
+              clearInterval(timer);
+              return;
+            }
+            item.imgScrollWidth += 1;
+          } else if (type == 1) {
+            if (item.imgScrollWidth >= target) {
+              item.imgScrollWidth = target;
+              clearInterval(timer);
+              return;
+            }
+            item.imgScrollWidth += 1;
+          }
+        }, 16)
+      },
+
+      //初始化或重置图片位置
+      resetImgPosition() {
+        this.imagesUrls.forEach((item, index) => {
+          // if (item.imgScrollHeight <= this.windowHeight && item.imgScrollHeight !== 0) {
+          //     //如果图片计算高度 小于 屏幕高度 且 不是才加载组件的情况
+          //     item.imgScrollHeight = this.windowHeight;
+          //     //防止宽度低于屏幕高度
+          //     if (item.imgScrollWidth < item.imgScrollHeight * this.windowWidth / this.windowHeight) {
+          //         //如果图片计算宽度 小于 图片计算高度 * 窗口宽高比；
+
+
+
+          //         item.imgScrollWidth = this.windowWidth;
+          //     }
+          //     return;
+          // } //处理高度允许最小到屏幕高度
+          
+          item.scrollSize = item.scrollSize < 100 ? 100 : item.scrollSize;
+
+          if ( item.imgWidth/ item.imgHeight <= this.windowWidth/ this.windowHeight) {
+              //当图片本身的高宽比例 小于 屏幕的高宽比例的时候，以高度为准
+              item.imgScrollHeight = this.windowHeight;
+              item.imgScrollWidth = item.imgScrollHeight * item.imgWidth / item.imgHeight;
+              return;
+          } //处理第一次进入时，高度宽度绘制问题
+
+          // item.imgScrollWidth = this.windowWidth;
+          // item.imgScrollHeight = item.imgHeight / item.imgWidth * this.windowWidth;
+
+          // this.interVal(item,0,this.windowWidth * item.scrollSize *0.01);
+          // this.interVal(item,1,item.imgHeight / item.imgWidth * this.windowWidth  * item.scrollSize*0.01);
+          item.imgScrollWidth = this.windowWidth * item.scrollSize * 0.01;
+          item.imgScrollHeight = item.imgHeight / item.imgWidth * this.windowWidth * item.scrollSize * 0.01;
+        })
+
+
+
+        //根据图片的计算后的高度或宽度，计算left和top值
+        for (var i = 0; i < this.imagesUrls.length; i++) {
+          var rate = this.imagesUrls[i].imgHeight / this.imagesUrls[i].imgWidth;
+
+          this.imagesUrls[i].left = (this.windowWidth - this.imagesUrls[i].imgScrollWidth) / 2;
+
+          if (this.windowWidth * rate > this.imagesUrls[i].imgScrollHeight) {
+            this.imagesUrls[i].imgScrollHeight = this.imagesUrls[i].imgScrollWidth * rate;
+          }
+
+          //这是上个版本
+          // if (this.imagesUrls[i].imgScrollHeight <= this.windowHeight && this.imagesUrls[i].imgScrollHeight !== 0) {
+          //     this.imagesUrls[i].top = 0;
+          // } else {
+          //     this.imagesUrls[i].top = (this.windowHeight - this.imagesUrls[i].imgScrollHeight) / 2;
+          // }
+          // 
+          //这是现在版本
+          this.imagesUrls[i].top = (this.windowHeight - this.imagesUrls[i].imgScrollHeight) / 2;
+        }
+        //重新绘制地图
+
+        this.imagesUrls.forEach((item, index) => {
+          item.regions.forEach((regionItem, indexReg) => {
+           
+            regionItem.width = 2 * this.windowWidth / item.imgWidth * regionItem.Radius * item.scrollSize / 100;
+            regionItem.height = 2 * this.windowWidth / item.imgWidth * regionItem.Radius * item.scrollSize / 100;
+
+            regionItem.width = regionItem.width >= 20 ? 　regionItem.width : 20;
+            regionItem.height = regionItem.height >= 20 ? 　regionItem.height : 20;
+
+            if (this.mapId == 1620 || item.name.indexOf('唐时期全图一') != -1) {
+              regionItem.left = (regionItem.CenterX - 100) / item.imgWidth * item.imgScrollWidth - regionItem.width/2
+            } else {
+              regionItem.left = (regionItem.CenterX + 120) / item.imgWidth * item.imgScrollWidth - regionItem.width/2
+            }
+
+            regionItem.top = regionItem.CenterY / item.imgHeight * item.imgScrollHeight - regionItem.height/2
+
+            // regionItem['iniWidth'] =  regionItem.width;
+            // regionItem['iniHeight'] =  regionItem.height;
+          })
+          this.$set(this.imagesUrls, index, item);
+        })
+
+      },
+
+      //初始化或重置图片位置
+      resetPosByWinwidth() {
+        this.imagesUrls.forEach((item, index) => {
+             item.left = (this.windowWidth - item.imgScrollWidth)/2;
+               
+              //重新绘制热区 
+              item.regions.forEach((regionItem, indexReg) => {
+               
+                regionItem.width = 2 * this.windowWidth / item.imgWidth * regionItem.Radius * item.scrollSize / 100;
+                regionItem.height = 2 * this.windowWidth / item.imgWidth * regionItem.Radius * item.scrollSize / 100;
+
+                regionItem.width = regionItem.width >= 20 ? 　regionItem.width : 20;
+                regionItem.height = regionItem.height >= 20 ? 　regionItem.height : 20;
+
+                if (this.mapId == 1620 || item.name.indexOf('唐时期全图一') != -1) {
+                  regionItem.left = (regionItem.CenterX - 100) / item.imgWidth * item.imgScrollWidth - regionItem.width/2
+                } else {
+                  regionItem.left = (regionItem.CenterX + 120) / item.imgWidth * item.imgScrollWidth - regionItem.width/2
+                }
+
+                regionItem.top = regionItem.CenterY / item.imgHeight * item.imgScrollHeight - regionItem.height/2
+
+              })
+              this.$set(this.imagesUrls, index, item);
+          })
+      },
+
+      myAjax(url, type, success, failed) {
+        var xhr;
+        if (window.XMLHttpRequest) {
+          xhr = new XMLHttpRequest();
+        } else {
+          xhr = new ActiveXObject('Microsoft.XMLHTTP');
+        }
+
+        xhr.open(type, url, true);
+        xhr.send();
+
+        xhr.onreadystatechange = () => {
+          if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+              if (success) {
+                success(xhr.responseText);
+              }
+            } else {
+              if (failed) {
+                failed()
+              }
+            }
+          }
+        }
+      },
+      //检查是否已经收藏
+      gethasCollect() {
+        //验证有没有用户信息
+        var hasUserId = volidUserId();
+        if (!hasUserId) return;
+
+        if (env == "dev") {
+          this.$http("/favorite/list", {
+              params: {
+                userid: localStorage.getItem('userId'),
+                type: 3, //收藏类别0-全部1图书2章节3地图4事件5人物
+              }
+            })
+            .then((res) => {
+              // this.dataList=res.data.Data.ItemList
+
+            })
+            .catch((err) => {
+              console.log(err)
+            })
+        } else if (env == "prod") {
+          // var winResult = ApiTransfer('get','/favorite/list','type=1&userid='+localStorage.getItem('userId'));
+          // winResult=JSON.parse(winResult)
+          // if(winResult.Success){
+          //     for(var i = 0 ; i < winResult.Data.ItemList.length ; i ++) {
+          //         if(this.sectionid == winResult.Data.ItemList[i].ObjectId) {
+          //            this.hasCollect = true;
+          //            break;
+          //        }
+
+          //        if(i == winResult.Data.ItemList.length - 1) {
+          //            // this.$set(this.menuListDisable,'collect',false)
+          //            this.hasCollect = false
+          //        }
+          //     }
+          // }
+
+          var data = {
+            type: 3,
+            userid: localStorage.getItem('userId')
+          }
+
+          //下面是配合winform异步获取数据
+          ApiTransfer('get', '/favorite/list', JSON.stringify(data), (winResult) => {
+            winResult = JSON.parse(winResult)
+            if (winResult.Success) {
+              for (var i = 0; i < winResult.Data.ItemList.length; i++) {
+                if (this.mapId == winResult.Data.ItemList[i].ObjectId) {
+                  ChangeFavoriteIcon(true, '地图',2);
+                  break;
+                }
+
+                if (i == winResult.Data.ItemList.length - 1) {
+                  ChangeFavoriteIcon(false, '地图',2);
+                }
+              }
+            } else {
+              ShowMessage(winResult.Description)
+            }
+          });
+        }
+      },
+      //获取所有地图数据，方便上下张切换
+      getAllMapData() {
+        if (env == 'dev') {
+          this.myAjax(baseUrl + '/resource/list?type=3&ps=100', 'GET', (res1) => {
+            var allData = JSON.parse(res1).Data.ItemList;
+            allData.forEach((item, index) => {
+              this.allMapData.push(item.Id);
+              //保存所有地图id的hash表
+            })
+          })
+        } else if (env == 'prod') {
+
+
+          // var resFromWinFOfMapData = ApiTransfer('get','/resource/list','type=3&ps=100');
+          //     resFromWinFOfMapData = JSON.parse(resFromWinFOfMapData);
+          // if(resFromWinFOfMapData.Code == 200) { 
+          //     var allData = resFromWinFOfMapData.Data.ItemList;
+          //     allData.forEach((item,index)=>{
+          //         this.allMapData.push(item.Id); 
+          //         //保存所有地图id的hash表
+          //     })
+          // }
+
+          var data = {
+            type: 3,
+            ps: 100
+          }
+
+          //下面是配合winform异步获取数据
+          ApiTransfer('get', '/resource/list', JSON.stringify(data), (resFromWinFOfMapData) => {
+            resFromWinFOfMapData = JSON.parse(resFromWinFOfMapData);
+            if (resFromWinFOfMapData.Code == 200) {
+              var allData = resFromWinFOfMapData.Data.ItemList;
+              allData.forEach((item, index) => {
+                this.allMapData.push(item.Id);
+                //保存所有地图id的hash表
+              })
+            }
+          });
+        }
+      },
+      //获取地图数据
+      getMapData(mapId, index, imgSrc, fn) {
+        if (env == 'dev') {
+          //获取地图数据
+          this.myAjax(baseUrl + '/resource/defaultfile_open?resourceid=' + mapId, 'GET', (res) => {
+            //获取热区数据
+            this.myAjax(baseUrl + '/resource/HotZoneList?id=' + mapId, 'GET', (res1) => {
+              var resData = JSON.parse(res).Data;
+              var imgName = resData.Url.slice(resData.Url.lastIndexOf('/') + 1, resData.Url.lastIndexOf('.'));
+              var hotZone = JSON.parse(res1).Data;
+              this.$set(this.imagesUrls, index, Object.assign(this.imagesUrls[index], { src: resData.Url, name: imgName, regions: hotZone }));
+              // this.$set(this.imagesUrls,0,Object.assign(this.imagesUrls[0],{src:'./images/春秋时期全图.jpg',name:imgName,regions:hotZone}));
+
+              // this.resetImgPosition();
+            })
+          });
+        } else if (env == 'prod') {
+
+          //新增一条足迹
+         ApiTransfer('get','/resource/detail',JSON.stringify({
+                    resourceid: mapId,
+                    userid:localStorage.getItem('userId')
+                }),(winResult)=>{});
+
+          //因为获取地图数据和获取热区都是分离的异步，所以分别设置一个flag检验是否数据返回
+          var mapFlag = false;
+          var hotRezFlog = false;
+
+          //下面是配合winform异步获取数据
+          ApiTransfer('get', '/resource/defaultfile_open', JSON.stringify({ resourceid: mapId }), (resFromWinFOfMapData) => {
+            resFromWinFOfMapData = JSON.parse(resFromWinFOfMapData);
+            
+            if (resFromWinFOfMapData.Code == 200) {
+              mapFlag = true;
+
+              var resData = resFromWinFOfMapData.Data;
+              var imgName = resData.Url.slice(resData.Url.lastIndexOf('/') + 1, resData.Url.lastIndexOf('.'));
+
+              if(imgName.indexOf('陈齐周') !== -1) imgName = imgName.split('-')[0];
+
+              if (index == 0) {
+                this.$set(this.imagesUrls, index, Object.assign(this.imagesUrls[index], { src: imgSrc, name: imgName, regions: [],mapId:mapId }));
+                SetTabTitle(imgName,GetFormId());
+                // this.$set(this.imagesUrls,index,Object.assign(this.imagesUrls[index],{src:srcArr[randomIndex],name:imgName,regions:[]}));
+              } else if (index == 1) {
+
+                // this.imagesUrls.push({src:srcArr[randomIndex],name:imgName,regions:[]})
+                this.imagesUrls.push({ src: imgSrc, name: imgName, regions: [],mapId: mapId })
+              }
+
+
+              // if(fn) fn(); 
+
+               getHotZone();
+            } else {
+              // alert(resFromWinFOfMapData.Description)
+              ShowMessage(resFromWinFOfMapData.Description);
+            }
+
+
+          });
+
+         
+          
+          var _this = this;
+          function getHotZone() {
+               // 下面是配合winform异步获取数据
+              ApiTransfer('get', '/resource/HotZoneList', JSON.stringify({ id: mapId }), (resFromWinFOfHotZone) => {
+                resFromWinFOfHotZone = JSON.parse(resFromWinFOfHotZone);
+
+                  var hotZone = resFromWinFOfHotZone.Data;
+
+                  _this.imagesUrls[index].regions = resFromWinFOfHotZone.Data;
+                  // _this.$set(_this.imagesUrls[index], 'regions', hotZone);
+                  
+                  if (fn) {
+                    var setTime = setInterval(() => {
+                      // if (mapFlag && hotRezFlog) {
+                        _this.$nextTick(()=>{
+                             fn();
+                        })
+                        clearInterval(setTime);
+                      // }
+                    }, 50)
+                  }
+             });
+          }
+
+
+
+          
+
+        }
+      }
+    },
+    created() {
+      if (env == 'dev') {
+        var baseUrls = location.href;
+        this.mapId = baseUrls.slice(baseUrls.indexOf('=') + 1);
+        this.getMapData(this.mapId, 0);
+
+        //获取所有地图数据，分为只保存id和index
+        this.getAllMapData();
+      } else if (env == 'prod') {
+        var baseStr = GetArgument();
+        this.mapId = baseStr.slice(baseStr.lastIndexOf('=') + 1);
+        this.imgSrc = baseStr.slice(baseStr.indexOf('imgSrc') + 7, baseStr.indexOf('&'));
+
+      }
+    },
+    mounted() {
+      // ShowDevTools();
+      this.isFileExist(this.mapId,0,this.getMapData(this.mapId, 0, this.imgSrc ,this.resetImgPosition));
+
+      //获取所有地图数据，分为只保存id和index
+      this.getAllMapData();
+
+      //下面这个定时器是为了解决一进入窗口样式错乱的bug
+      setTimeout(() => {
+        var imgNode = document.createElement('img');
+        imgNode.setAttribute('src', './images/loading.gif');
+        document.getElementById('loadMenban').appendChild(imgNode)
+      }, 100)
+      setTimeout(() => {
+        document.getElementById('loadMenban').parentNode.removeChild(document.getElementById('loadMenban'));
+        _this.resize();
+      }, 2000)
+      
+      //取消工具条禁用
+       IsMapCover(false);
+
+      //初始化一个消息盒子
+      
+       this.message = new Message();
+      //获取当前地图图片及热区
+      
+      //获取浏览器显示区高度
+      var _this = this;
+      _this.gethasCollect();
+
+
+      _this.$nextTick(() => {
+        // _this.resetImgPosition();
+        _this.getTableData();
+        // _this.gethasCollect();
+      })
+
+
+      // 解决鼠标放开bug
+      document.addEventListener('mouseup', function(e) {
+          _this.stopMove();
+      },false)
+
+      
+      window.onresize = function(e) {
+        _this.resize();
+        // _this.resetImgPosition();
+      }
+
+    },
+    updated() {
+      //设置透明度bar
+      this.barHeight = window.innerHeight/2;
+      this.baroffsetTop = this.$refs.opactityBarCont.offsetTop - this.barHeight / 2 + 10;
+    },
+    watch: {
+      'picked': function(nVal, oVal) {
+        if (nVal == '全部') {
+          if (this.imagesUrls[1]) {
+            this.scrollPercent = this.imagesUrls[0].scrollPercent > this.imagesUrls[1].scrollPercent ? this.imagesUrls[0].scrollPercent : this.imagesUrls[1].scrollPercent;
+            //给缩放进度条赋值
+            this.opacityPercent = this.imagesUrls[0].opacity > this.imagesUrls[1].opacity ? this.imagesUrls[0].opacity : this.imagesUrls[1].opacity
+            //给透明度进度条赋值
+            this.imagesUrls[1].zIndex = 1;
+            this.imagesUrls[0].zIndex = 0;
+          } else {
+            this.scrollPercent = this.imagesUrls[0].scrollPercent;
+            this.opacityPercent = this.imagesUrls[0].opacity
+            this.imagesUrls[0].zIndex = 0;
+          }
+        } else if (nVal == '图片一') {
+          this.scrollPercent = this.imagesUrls[0].scrollPercent;
+          this.opacityPercent = this.imagesUrls[0].opacity;
+          this.imagesUrls[0].zIndex = 1;
+          if (this.imagesUrls[1]) {
+            this.imagesUrls[1].zIndex = 0;
+          }
+        } else if (nVal == "图片二") {
+          this.scrollPercent = this.imagesUrls[1].scrollPercent;
+          this.opacityPercent = this.imagesUrls[1].opacity;
+          this.imagesUrls[1].zIndex = 1;
+          this.imagesUrls[0].zIndex = 0;
+        }
+      },
+      'windowWidth': function(nw, old) {
+        // if (nw > old) {
+        //   // 只考虑放大，不考虑缩小
+        //   this.$nextTick(() => {
+        //     console.log(this.imagesUrls)
+        //     if (this.imagesUrls[0].imgScrollWidth - nw <= 0 || this.imagesUrls[0].left > 0 || nw + Math.abs(this.imagesUrls[0].left) - this.imagesUrls[0].imgScrollWidth > 0) {
+        //       // this.resetImgPosition();
+        //       this.resetPosByWinwidth();
+        //     }
+        //   })
+        // }else {
+        //   //当缩小的时候，如果图片宽度小于屏幕宽度，这个时候需要平衡图片两边的留白
+        //   this.$nextTick(() => {
+        //     if (this.imagesUrls[0].left > 0 && this.imagesUrls[0].imgScrollWidth < old) {
+        //         this.resetPosByWinwidth();
+        //       }
+        //     })
+        // }
+
+
+        if (nw > old) {
+          // 只考虑放大，不考虑缩小
+          this.$nextTick(() => {
+            if (this.imagesUrls[0].imgScrollWidth - Math.abs(this.imagesUrls[0].left) - nw <= 0) {
+              this.resetImgPosition()
+            }
+          })
+        }else {
+          //当缩小的时候，如果图片宽度小于屏幕宽度，这个时候需要平衡图片两边的留白
+          this.$nextTick(() => {
+            if (this.imagesUrls[0].left > 0 && this.imagesUrls[0].imgScrollWidth < old) {
+                this.resetPosByWinwidth();
+               }
+            })
+        }
+      },
+      'saveHotAreaState':function(nw,old) {
+         if(nw) {
+           ChangeFavoriteIcon(true, '地图',4);
+         }else {
+           ChangeFavoriteIcon(false, '地图',4);
+         }
+      } 
+    }
+  })
+
+  </script>
+  <script>
+  // ------------------------------------------以下是暴露给winform方法 ------------------------------
+  document.addEventListener('click', ()=>{
+         CloseMenueStrip();
+  }, false)
+  
+  //关闭程序清除用户数据
+  function clearLocalStorage(type) {
+      if(type == 1) {
+          localStorage.removeItem('userId');
+      }else if(type == -1) {
+          localStorage.removeItem('searchArr');
+      } 
+  }
+
+  function closeAllModal() {
+     $("#affeected").modal("hide");
+     $("#equipement").modal("hide");
+     $vm.closeLibOper();
+  }
+  
+  //设置打开热区后，当前热区根据聚焦的热区章节渲染地图上的热区样式
+  function setActiveOptions(_id) {
+     if(!_id) {
+       $vm.$data.activeRegionId = null;
+       return;
+     };
+     $vm.$data.activeRegionId = _id;
+  }
+
+  function toggleHotArea() {
+    if($vm.$data.imagesUrls.length == 1) {
+       if($vm.$data.imagesUrls[0].regions.length == 0) {
+          $vm.$data.message.showMessage('info','暂无热区');
+          return;
+       }
+    }else if($vm.$data.imagesUrls.length == 2) {
+       if($vm.$data.imagesUrls[0].regions.length == 0 && $vm.$data.imagesUrls[1].regions.length == 0) {
+          $vm.$data.message.showMessage('info','暂无热区');
+          return;
+       }
+    }
+
+    $vm.$data.isHotAreaShow = !$vm.$data.isHotAreaShow;
+    
+    if($vm.$data.isHotAreaShow) {
+       $vm.$data.message.showMessage('info','已开启热区！');
+    }else {
+       $vm.$data.message.showMessage('info','已关闭热区！');
+    }
+   
+    $vm.$data.saveHotAreaState = $vm.$data.isHotAreaShow;
+    closeAllModal();
+  }
+
+  //叠加当代图
+  function addCurMap(imgSrc, resourceid, item) {
+    //禁用工具条
+    
+    $("#equipement").modal("hide");
+    $("#affeected").modal("hide");
+
+    if ($vm.$data.imagesUrls.length >= 2) {
+      $vm.$data.showMessage('error','叠加的地图超过两张，请先关闭其中一张！');
+      return;
+    }
+
+    IsMapCover(true);
+
+    var img1 = $vm.$data.imagesUrls[0];
+    var preL = img1.left;
+    var preR = img1.top;
+    var preW = img1.imgScrollWidth;
+    var preH = img1.imgScrollHeight;
+    var preItmeSize = img1.scrollSize;
+    var preItemPercent = img1.scrollPercent;
+    var preOpacity = img1.opacity;
+
+    if (resourceid) {
+      if (env == 'dev') {
+        $vm.getMapData(resourceid, 1);
+      } else if (env == 'prod') {
+        // var delNativeUrl = ChangeDpi(item.nativeUrl);
+        // ChangeDpi(item.nativeUrl,(delNativeUrl)=>{
+        $vm.getMapData(resourceid, 1, item.nativeUrl, () => {
+          var preData = {
+            scrollSize: 100,
+            isResie: false,
+            clentX: 10,
+            clentY: 10,
+            left: img1.left,
+            top: img1.top,
+            scrollPercent: 0,
+            imgScrollWidth: img1.imgScrollWidth,
+            imgScrollHeight: img1.imgScrollHeight,
+            opacity: 100 - img1.opacity,
+            zIndex: 0,
+            imgWidth: 5560,
+            imgHeight: 3794
+          }
+          $vm.$set($vm.$data.imagesUrls, 1, Object.assign({}, $vm.$data.imagesUrls[1], preData));
+          // $vm.$data.imagesUrls.forEach((item, index) => {
+          var img2 = $vm.$data.imagesUrls[1];
+          if (img2.regions.length !== 0) {
+            var setTimeOut = setInterval(function() {
+              if (img2.src !== '') {
+                $vm.$data.imagesUrls[1].regions.forEach((regionItem, indexReg) => {
+                  
+                  regionItem.width = 2 * $vm.$data.windowWidth / img2.imgWidth * regionItem.Radius * img2.scrollSize / 100;
+                  regionItem.height = 2 * $vm.$data.windowWidth / img2.imgWidth * regionItem.Radius * img2.scrollSize / 100;
+
+                  regionItem.width = regionItem.width >= 20 ? 　regionItem.width : 20;
+                  regionItem.height = regionItem.height >= 20 ? 　regionItem.height : 20;
+
+                  if ($vm.$data.mapId == 1620 || img2.name.indexOf('唐时期全图一') != -1) {
+                    regionItem.left = (regionItem.CenterX - 100) / img2.imgWidth * img2.imgScrollWidth - regionItem.width/2;
+                  } else {
+                    regionItem.left = (regionItem.CenterX + 120) / img2.imgWidth * img2.imgScrollWidth - regionItem.width/2;
+                  }
+                  regionItem.top = regionItem.CenterY / img2.imgHeight * img2.imgScrollHeight - regionItem.height/2;
+                })
+                $vm.$set($vm.$data.imagesUrls, 1, img2);
+                clearInterval(setTimeOut);
+              }
+            }, 500)
+          }
+
+          $vm.openLibCate();
+
+        });
+        // });
+
+
+      }
+
+
+      // })
+    } else {
+      //此时是叠加当代图
+      $vm.closeLibOper();
+      
+      //如果当前已经是当代图，就不允许再叠加
+      if($vm.$data.imagesUrls[0].name.indexOf('中华人民共和国')!== -1) {
+          $vm.$data.message.showMessage('error','不能对比同一张地图！');
+          return;
+      }
+
+      var preData = {
+        src: imgSrc,
+        // src: './images/DSC06895.JPG',
+        name: '中华人民共和国',
+        scrollSize: 100,
+        isResie: false,
+        clentX: 10,
+        clentY: 10,
+        left: img1.left,
+        top: img1.top,
+        scrollPercent: 0,
+        imgScrollWidth: img1.imgScrollWidth,
+        imgScrollHeight: img1.imgScrollHeight,
+        opacity: 100 - img1.opacity,
+        zIndex: 0,
+        imgWidth: 5560,
+        imgHeight: 3794,
+        regions: []
+      }
+      $vm.$data.imagesUrls.push(preData)
+    }
+
+    $vm.$data.opacityPercent = 50;
+    $vm.$data.imagesUrls.forEach(function(item, index) {
+      item.left = preL;
+      item.right = preR;
+      item.imgScrollWidth = preW;
+      item.imgScrollHeight = preH;
+      item.scrollSize = preItmeSize;
+      item.scrollPercent = preItemPercent;
+      item.opacity = 50;
+    })
+  }
+
+  //笔记窗口
+  function addNote() {
+    closeAllModal();
+    //打开笔记界面
+    if (env == 'dev') {
+      window.location.href = ymUrl + '/noteEditor';
+    } else if (env == 'prod') {
+      loadForm('/static/noteEditor.html', '笔记', '新增笔记', true);
+    }
+  }
+
+  function addAnyMap() {
+    $("#affeected").modal("hide");
+    $("#equipement").modal("hide");
+    $vm.openLibCate();
+  }
+
+  //添加收藏
+  function addCollect() {
+    closeAllModal();
+    $vm.addCollect();
+  }
+
+  //失焦后再次聚焦验证收藏,叠加地图多个按钮及热区显示
+  function volidCollected() {
+    $vm.gethasCollect();
+    if($vm.$data.imagesUrls.length == 2) IsMapCover(true);
+    if($vm.$data.saveHotAreaState) {
+      ChangeFavoriteIcon(true, '地图',4);
+    }else {
+      ChangeFavoriteIcon(false, '地图',4);
+    }
+  }
+
+  function a() {
+    console.log($vm.$data.picked);
+  }
+
+  function openNextMap() {
+
+  }
+
+
+  //------------------------------------------------------以下是模态框比分----------------------------------------
+
+  //相关文章
+  relatedArticles = function() {
+    $vm.closeLibOper();
+    $("#affeected").modal("hide");
+    $("#equipement").modal("hide");
+    //验证有没有用户信息
+    var hasUserId = volidUserId();
+    if (!hasUserId) return;
+    //获取地图的详情
+    if (env == "dev") {
+      $.ajax({
+        url: baseUrl + "/resource/detail",
+        methods: "GET",
+        data: {
+          userid: localStorage.getItem('userId'),
+          resourceid: $vm.$data.mapId
+        },
+        success: function(res) {
+          res = eval('(' + res + ')');
+
+          if (res.Data.ContentStartTime.indexOf("BC") == -1) {
+            var startTimes = res.Data.ContentStartTime + "_0"
+          } else {
+            var startTimes = res.Data.ContentStartTime.split('BC')[1] + "_1";
+          }
+
+          if (res.Data.ContentEndTime.indexOf("BC") == -1) {
+            var endTimes = res.Data.ContentEndTime + "_0"
+          } else {
+            var endTimes = res.Data.ContentEndTime.split('BC')[1] + "_1";
+          }
+
+          window.location.href = ymUrl + '/sectionlist?duration=' + startTimes + '-' + endTimes
+        }
+      })
+    } else if (env == "prod") {
+      // var winResult = ApiTransfer('get','/resource/detail',"userid="+localStorage.getItem('userId')+"&&resourceid="+$vm.$data.mapId);
+      //  winResult=JSON.parse(winResult)
+      //  if(winResult.Success){
+      //      if( winResult.Data.ContentStartTime.indexOf("BC")==-1){
+      //             var startTimes =winResult.Data.ContentStartTime+"_0"
+      //         }else{
+      //             var startTimes =winResult.Data.ContentStartTime.split('BC')[1]+"_1";
+      //         }
+
+      //          if( winResult.Data.ContentEndTime.indexOf("BC")==-1){
+      //             var endTimes =winResult.Data.ContentEndTime+"_0"
+      //         }else{
+      //             var endTimes =winResult.Data.ContentEndTime.split('BC')[1]+"_1";
+      //         }
+      //         SaveArgument('duration='+startTimes+'-'+endTimes)
+      //         loadForm('/index.html#/sectionlist','资源','地图相关章节');
+
+
+      //  }
+
+      var data = {
+        userid: localStorage.getItem('userId'),
+        resourceid: $vm.$data.mapId
+      }
+
+
+      //下面是配合winform异步获取数据
+      ApiTransfer('get', '/resource/detail', JSON.stringify(data), (winResult) => {
+        winResult = JSON.parse(winResult)
+        if (winResult.Success) {
+          if (winResult.Data.ContentStartTime.indexOf("BC") == -1) {
+            var startTimes = winResult.Data.ContentStartTime + "_0"
+          } else {
+            var startTimes = winResult.Data.ContentStartTime.split('BC')[1] + "_1";
+          }
+
+          if (winResult.Data.ContentEndTime.indexOf("BC") == -1) {
+            var endTimes = winResult.Data.ContentEndTime + "_0"
+          } else {
+            var endTimes = winResult.Data.ContentEndTime.split('BC')[1] + "_1";
+          }
+          SaveArgument('duration=' + startTimes + '-' + endTimes)
+          loadForm('/index.html#/sectionlist', '资源', winResult.Data.Title+'-相关文章', true);
+        }
+      });
+    }
+
+
+  }
+
+  //展示模态框:涉及地区等
+  openModalEvent = function() {
+    $vm.closeLibOper();
+    $("#equipement").modal("hide")
+    if (env == "dev") {
+      var mapId = location.href.split('resourceid=')[1].split("&")[0];
+      $("#affeected").modal("show").css("paddingTop", "150px")
+      $.ajax({
+        url: baseUrl + "/resource/explicitwordlist",
+        methods: "GET",
+        data: {
+          type: 2,
+          resourceid: mapId
+        },
+        success: function(res) {
+          res = eval('(' + res + ')');
+          renderData(res.Data, 2)
+        }
+      })
+    } else if (env == "prod") {
+      // var winResult = ApiTransfer('get','/resource/explicitwordlist',"type=2&&resourceid="+$vm.$data.mapId);
+      //  winResult = JSON.parse(winResult)
+      //   $("#affeected").modal("show").css("paddingTop","150px")
+      // if(winResult.Success){
+      //     renderData(winResult.Data,2)
+      // }
+
+      var data = {
+        type: 2,
+        resourceid: $vm.$data.mapId
+      }
+
+      //下面是配合winform异步获取数据
+      ApiTransfer('get', '/resource/explicitwordlist', JSON.stringify(data), (winResult) => {
+        winResult = JSON.parse(winResult)
+        $("#affeected").modal("show").css("paddingTop", "150px")
+        if (winResult.Success) {
+          renderData(winResult.Data, 2)
+        }
+      });
+    }
+
+  }
+
+  //渲染涉及系列的内容
+  function renderData(data, type) {
+    var innerHtml = "";
+    $("#modalBody").html('');
+
+    if (data == null) {
+      innerHtml += "<div class='noInnerHtml'>暂无数据</div>"
+    } else {
+      if (data.length == 0) {
+        innerHtml += "<div class='noInnerHtml'>暂无数据</div>"
+      } else {
+        if (data.length > 18) {
+          $("#affeected").css("paddingTop", "20px")
+        } else {
+          $("#affeected").css("paddingTop", "150px")
+        }
+        for (var i = 0; i < data.length; i++) {
+          var abstract = data[i].Abstracts == null ? '暂无' : data[i].Abstracts
+          innerHtml += "<div class='span1' onclick='goChapterList1(" + data[i].Id + ",\"" + data[i].Title + "\")'>" + data[i].Title + "<span class='showBox2' style='display:none;'><span class='showBox1'>" + abstract + "</span></span></div>"
+        }
+      }
+    }
+
+    $("#modalBody").html(innerHtml)
+  }
+
+  //点击跳转 相关章节
+  goChapterList1 = function(id, title) {
+    if (env == "dev") {
+      window.location.href = ymUrl + '/eventDetail?eventId=' + id;
+    } else if (env == "prod") {
+      //跳转到详情
+      SaveArgument('eventId=' + id)
+      loadForm('/index.html#/eventDetail', '详情', title, true);
+      $("#affeected").modal("hide")
+
+      //跳转到章节列表
+      // SaveArgument('relatedeventids='+id)
+      // loadForm('/index.html#/sectionlist','资源','章节列表')
+    }
+  }
+
+  //右边的详情框
+  $("#modalBody").on("mouseenter", '.span1', function() {
+    var dex = $("#modalBody").find('.span1').index($(this));
+    var myspan = $("#modalBody").find('.span1').eq(dex).children('span').children('span');
+    if (myspan.html() == "暂无") {
+      $(this).children('span').css("width", '100px')
+    } else {
+      $(this).children('span').css("width", '300px')
+    }
+    $("#modalBody").find('.span1').eq(dex).children('span').show();
+  }).on("mouseleave", '.span1', function() {
+    var dex = $("#modalBody").find('.span1').index($(this));
+    $("#modalBody").find('.span1').eq(dex).children('span').hide();
+  })
+
+  // 设备切换
+  showEquipement = function() {
+    $vm.closeLibOper();
+    $("#affeected").modal("hide");
+    $("#equipement").modal("show").css("marginTop", "150px");
+
+    //获取用户自身的设备名和设备列表
+    var deviceInfo = JSON.parse(GetDeviceInfo());
+    $('#myEqu').text(deviceInfo.DeviceTitle);
+    //获取列表
+
+    //下面是配合winform异步获取数据
+    //userid:localStorage.getItem('userId')
+    ApiTransfer('get', '/device/list', JSON.stringify({ userid: localStorage.getItem('userId') }), (winResult) => {
+      winResult = JSON.parse(winResult)
+      if (winResult.Success) {
+        var itemList = winResult.Data.ItemList;
+        if (itemList.length > 15) $("#equipement").modal("show").css("marginTop", "70px");
+
+        var listStr = '';
+        itemList.forEach((item, index) => {
+          var itemStr = JSON.stringify(item);
+          if(item.Title !== deviceInfo.DeviceTitle) {
+             listStr += `<label><input type="radio" name="equipList" itemdata='${itemStr}'>${item.Title}</label>`;
+          }
+        })
+
+        $('#equipList').empty();
+        $('#equipList').append(listStr);
+      } else {
+        ShowMessage(winResult.Description)
+      }
+    });
+
+
+
+  }
+
+   $('#changeEquip').on('click', function() {
+      // 获取到目标设备信息
+      if ($('input:radio[name="equipList"]:checked').length == 0) {
+        var message = new Message(); 
+        message.showMessage('error','请选择切换的设备！');
+        return;
+      };
+
+      //获取用户自身的设备名和设备列表
+      var deviceInfo = JSON.parse(GetDeviceInfo());
+      var clickDeviceData = JSON.parse($('input:radio[name="equipList"]:checked').attr('itemdata'));
+
+      //要传入另一个设备的参数
+      var data = {
+          resourceid: $vm.$data.mapId,
+          fileid: null,
+          position: 0,
+          url: '',
+          sourcedeviceid: deviceInfo.DeviceId,
+          targetdeviceid: clickDeviceData.Id,
+          tag: '',
+          state: 1,
+          resourcetype: 3,
+          userid: localStorage.getItem('userId'),
+      }
+
+      // 获取资源详情，然后根据详情获得fileid
+      ApiTransfer('get', '/resource/detail', JSON.stringify({ resourceid: $vm.$data.mapId }), (winResult) => {
+        winResult = JSON.parse(winResult)
+
+        data.fileid = winResult.Data.DefaultFileId;
+        //获取资源的URL
+        ApiTransfer('get', '/resource/defaultfile_open', JSON.stringify({
+          resourceid: $vm.$data.mapId,
+          userid: localStorage.getItem('userId')
+        }), (resFromWinF) => {
+          resFromWinF = JSON.parse(resFromWinF)
+          data.url = resFromWinF.Data.Url;
+
+          //发送设备切换的数据
+          changeDevice(data)
+
+        });
+      });
+
+      $("#equipement").modal("hide");
+
+
+    })
+
+    //发送数据
+    function changeDevice(data) {
+      ApiTransfer('post', '/umengpush/changewindow', JSON.stringify(data), (winResult) => {
+        winResult = JSON.parse(winResult);
+        // if (winResult.Code !== 200) 
+          var message = new Message();
+          if(winResult.Code == 200) {
+            message.showMessage('success','切换成功');
+            
+          }else {
+            message.showMessage('error',winResult.Description)
+          };
+
+      });
+    }
+
+  </script>
+</body>
+
+</html>

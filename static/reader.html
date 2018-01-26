@@ -1,0 +1,3078 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <script src="./vue.js"></script>
+    <link rel="stylesheet" href="./css/reader.css">
+    <link rel="stylesheet" type="text/css" href="./css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/message.css">
+    <script src="./jquery-1.11.0.min.js"></script>
+    <script src="./js/ajax.js"></script>
+    <script src="./js/bootstrap.min.js"></script>
+    <script src="js/localStorage.js"></script>
+    <style>
+        [v-cloak]{
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="index-cont" :style="{width:winWidth +'px',height:winHeight-10 +'px'}" id="bookCont" ref="bookCont" @mouseleave="bodyMouseenter = false">
+        <div style="position: fixed;left: 0;top:0;z-index: 99999;display: flex;justify-content: center;align-items: center; width: 100%;height: 100%;background: white;" id="loadMenban">
+            
+        </div>
+
+        <img src="./images/已添加书签.png" alt="" class="mark-img-class" v-show="isMarkImgShow">
+
+        <div class="book-cont-bottom" :style="{background:bottomBg}">
+            <span style="font-style: italic;font-family:'微软雅黑'">
+                 {{sectionName}}
+            </span>
+            <span style="font-style: italic;font-family:'微软雅黑'">
+                 {{readPercent}}%
+            </span>
+        </div>
+
+        <div class="lib-cate" :style="{left:libLeft + 'px',boxShadow:libLeft >= -20 ?'5px 5px 10px #ccc':'' }" v-if="libOrMap">
+            <div class="book-or-section-lib">
+                <span :class="libIsActive?'lib-active':''" @click="changeLib(0)" style="margin-left: -15px">章节目录</span>
+                <span :class="libIsActive?'':'lib-active'" @click="changeLib(1)">图书目录</span>
+            </div>
+            <div class="lib-list-wrap">
+                <div class="book-or-section-lib-list">
+                    <ul v-if="libIsActive">
+                        <li v-for="(item,index) in sectionLibList" @click="changeIframeSrc(item.Src,index)" v-cloak>
+                            {{item.Title}}
+                        </li>
+                    </ul>
+                    <ul v-else>
+                        <li v-for="(item,index) in bookLibList" @click="changeIframeSrc('',index,item.Id)" v-cloak>
+                            {{item.Title}}
+                            <ul>
+                                <li v-for="(Sitem,Sindex) in item.Sections" class="book-sections-list" @click.stop="changeIframeSrc('',index,Sitem.Id)">&nbsp;{{Sitem.Title}}</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="lib-cate" :style="{left:libLeft + 'px'}" v-else>
+                <div class="book-or-section-lib">
+               
+                </div>
+                <div class="lib-list-wrap">
+                    <div class="book-or-section-lib-list">
+                        <ul >
+                            <li v-for="(item,index) in maplistData" :title="item.Title" :class="item.hasDownLoad?'is-checked font-model-list':'font-model-list'" 
+                               @click="startDownLoad(item,index)" 
+                               @mouseenter="showDownIcon(item,index)"
+                               @mouseleave="showDownIcon(item,index)"
+                            >
+
+                                <span v-cloak>{{item.Title.length <= 6?item.Title:item.Title.slice(0,6)+'...'}}</span>
+                                &nbsp;
+                                <img src="./images/下载小.png" alt="" v-show="!item.showHasDownLoad" v-if="!item.startDownLoad">
+                                <span v-else v-show="item.downLoadPercent !== 100" style="color:#337ab7; position: absolute;right: 10px;top: 14px;" v-cloak>{{item.downLoadPercent}}%</span>
+                                <img src="./images/下载完成.png" alt="" v-show="item.hasDownLoad ">
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+        </div>
+
+        <!-- 左右切换 -->
+        <div class="page-exchange page-exchange-left"  v-show="bodyMouseenter">
+             <div >
+                <img :src="leftArrow" alt="" @mouseenter="enterArrowSrc(-1)" @mouseleave="leaveArrowSrc(-1)" @click="pageExchange(-1)">
+            </div>
+        </div>
+       <div class="page-exchange page-exchange-right"  v-show="bodyMouseenter">
+            <div >
+                <img :src="rightArrow" alt="" @mouseenter="enterArrowSrc(1)" @mouseleave="leaveArrowSrc(1)" @click="pageExchange(1)">
+            </div>
+       </div>
+       
+        <iframe :src="iframeSrc" frameborder="0" width="90%" height="100%" id="bookContIframe" ref="bookIframe" align="middle" ></iframe>
+
+        <div class="loading-content" v-show="loading">
+             
+        </div>
+
+        <div class="loading-content load-other" v-show="loading" v-cloak>
+             <p>{{downLoadPercent}} %</p>
+             <p>正在为您排版，请稍候...</p>
+        </div>
+
+        <!-- 涉及地区人物事件 -->
+        <div class="modal fade" tabindex="-1" role="dialog" id="affeected">
+            <div class="modal-dialog" role="document" style="width: 70%;margin:0 auto">
+                <div class="modal-content">
+                    <div class="modal-header" id="activeTitle">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 id='person'>涉及人物</h4>
+                        <h4 id='events'>涉及事件</h4>
+                        <h4 id='area'>涉及地区</h4>
+                        <h4 id='map11'>同时期地图</h4>
+                    </div>
+                    <div class="modal-body" id="modalBody">
+                    </div>
+                </div>
+                <!-- /.modal-content -->
+            </div>
+            <!-- /.modal-dialog -->
+        </div>
+        <!-- 切换设备 -->
+        <div class="modal fade" tabindex="-1" role="dialog" id="equipement">
+          <div class="modal-dialog" role="document" style="width: 480px;height:400px;margin:0 auto">
+            <div class="modal-content">
+              <div class="modal-header nopadding" id="activeTitle">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="equipement">设备切换</h4>
+              </div>
+              <div class="modal-body">
+                    <div class="select">
+                        <span>我的设备：<b id="myEqu"></b></span>
+                        <input type="button" name="" class='mybtn1' value="确定" id="changeEquip">
+                    </div>
+                    <div class="checkbox" id="equipList">
+                         <!-- 设备列表 -->
+                    </div>
+              </div>
+
+            </div><!-- /.modal-content -->
+          </div><!-- /.modal-dialog -->
+        </div>
+
+
+
+        <ul class="context-menu" :style="{left:conMenuLeft+'px',top:conMenuTop + 'px'}" v-show="conMenuShow">
+            <li :class="menuListDisable.copy?'':'menu-disabled'" @click="closeMenuAndDo($event,'copy')">复制</li>
+            <li @click="closeMenuAndDo($event,'collect')">{{menuListDisable.collect?'收藏':'取消收藏'}}</li>
+            <li @click="closeMenuAndDo($event,'addMark')" :class="canIaddNote?'':'menu-disabled'">{{menuListDisable.addMark?'添加书签':'取消书签'}}</li>
+            <li :class="menuListDisable.bookSearch?'':'menu-disabled'" @click="closeMenuAndDo($event,'bookSearch')">文内检索</li>
+            <li :class="menuListDisable.createNote?'':'menu-disabled'" @click="closeMenuAndDo($event,'createNote')">创建笔记</li>
+        </ul>
+
+        <div class="message" id="message">
+            <img class="el-message__img" src="" id="messageType">
+            <div class="el-message__group">
+              <p id="messageText"></p>
+            </div>
+        </div>
+     </div>
+    <script src="js/message.js"></script>
+    <script>
+    //因为jquery是在引入第三方模态框时引入吗，所以vue中也会有地方用到，更方便的操作节点
+    var $vm = new Vue({
+        el: '#bookCont',
+        data: {
+            isQueryOpen:true,
+            maplistData:[],
+            libOrMap:true,
+            //true - 目录  false - 地图
+            sectionid:'',
+            bookSecret:'',
+            nativeUrl:'', 
+            parentId:0,
+            curSectionIndex:0,
+            winWidth: 1080,
+            winHeight: 768,
+            libIsActive: true,
+            loading: false,
+            downLoadPercent:0,
+            libLeft: -300,
+            // libLeft: 0,
+            iframeSrc: '',
+            sectionName: '',
+            radio3: '章节目录',
+            bookIframeBody: null,
+            bookIframeWindow: null,
+            thisIframeSectionTops: [],
+            thisIframeSections: null,
+            firstEle:null,  //每次滚动结束保存左上角第一个元素
+            readPercent: 0,
+            bottomBg: 'white',
+            pageNumShow: true,
+            isMarkImgShow:false,
+            canIaddNote:true,
+            markTime:null,
+            fontCount: 0,
+            isTwoCol: false,
+            countLeft: 0,
+            scrollTimer: null,
+            // scrollAvoid:false,
+            scrollCount: 0,
+            conMenuLeft: 100,
+            conMenuTop: 100,
+            conMenuShow: false,
+            preOrNextSearch:true,
+            menuListDisable: {
+                copy: false,
+                collect: false,
+                addMark: false,
+                bookSearch: false,
+                createNote: false,
+            },
+            hasCollect:false,
+            hasMark:false,
+            bodyMouseenter:false,
+            leftArrow: './images/未选中-左.png',
+            rightArrow: './images/未选中-右.png',
+            sectionLibList: [
+            // {
+            //     Title: '一、东突厥归隋（584年前后）',
+            //     src: "./OPS/chapter8.html#A73d60164-a993-46f5-b2ff-3493d00b979d",
+            // }
+            ], 
+            bookLibList: [
+               // {
+            //     Title: '一、东突厥归隋（584年前后）',
+            //     Id:100,
+            //     hasDown:false,
+            //     
+            // }
+            ],
+            tableofSections:[
+            ],
+            fileId:null,
+            message:null,
+            searchConf:null,
+            formId:''
+        },
+        methods: {
+            setWindow() {
+                if(this.bookIframeWindow) this.firstEle =  this.firstEle ? this.firstEle:this.getScreenStartEle()[0];
+
+
+                this.winWidth = window.innerWidth;
+                this.winHeight = window.innerHeight;
+                if(env == 'prod') {
+                   var winformWidth = GetFormWidth();
+                   if(this.winWidth >= parseInt(winformWidth) - 50) {
+                       this.isTwoCol = true; 
+                   }else {
+                       this.isTwoCol = false;
+                   }
+
+                   // if(this.bookIframeWindow) this.setIframeImg();
+                }
+
+
+                if(this.firstEle && this.bookIframeWindow) {
+                    //缩放始终保证当前阅读位置
+                    this.$nextTick(()=>{
+                        this.countLeft = this.firstEle.offsetLeft;
+                        this.bookIframeWindow.document.body.scrollLeft = this.countLeft;
+                    })
+                }
+                
+            },
+            //設置文內圖片适应屏幕
+            setIframeImg() {
+                if(!this.bookIframeWindow) return;
+               //遍历文内所有图片的宽
+                var listofImg = $(this.bookIframeWindow.document.body).find('img')
+                var winWidthRate = this.winWidth/GetFormWidth();
+                var winHeightRate = this.winHeight/GetFormHeight();
+                
+                var _this = this;
+
+                for(var i = 0 ; i < listofImg.length ; i ++) {
+                    if($(listofImg[i]).attr('src').indexOf('/static/images') !== -1) continue;
+                    if(!$(listofImg[i]).parent().hasClass('center')) continue;
+                    
+// maxHeight:_this.winHeight * 0.8 +'px'
+                    var imgHeight =  parseInt($(listofImg[i]).css('height'));
+                    imgHeight = imgHeight >= _this.winHeight* 0.8?_this.winHeight * 0.8:imgHeight;
+
+                    $(listofImg[i]).parent().css({
+                       '-webkit-column-break-inside':'avoid', 
+                       'height':imgHeight + 30 +'px'
+                    })
+
+
+                    $(listofImg[i]).attr('class','');
+
+                    $(listofImg[i]).css({
+                       maxWidth: _this.isTwoCol?'40%':'95%',
+                       maxHeight:'90%'
+                    })
+
+                    // if(winWidthRate > winHeightRate) {
+                    //     $(listofImg[i]).css('width',parseInt(getComputedStyle(listofImg[i],null).width)*winHeightRate + 'px');
+                    //     $(listofImg[i]).css('height',parseInt(getComputedStyle(listofImg[i],null).height)*winHeightRate + 'px');
+                    // }else {
+                    //     $(listofImg[i]).css('width',parseInt(getComputedStyle(listofImg[i],null).width)*winWidthRate + 'px');
+                    //     $(listofImg[i]).css('height',parseInt(getComputedStyle(listofImg[i],null).height)*winWidthRate + 'px');
+                    // }
+                }
+            },
+            //根据屏幕缩放文内图片变化
+            setIframeImgWithWindow(nv,ov) {
+                // if(!this.bookIframeWindow) return;
+                // var listofImg = $(this.bookIframeWindow.document.body).find('img')
+                // var winRate = nv/ov;
+
+                // for(var i = 0 ; i < listofImg.length ; i ++) {
+                //     if($(listofImg[i]).attr('src').indexOf('/static/images') !== -1) continue;
+                //     $(listofImg[i]).css('width',parseInt(getComputedStyle(listofImg[i],null).width)*winRate + 'px');
+                //     $(listofImg[i]).css('height',parseInt(getComputedStyle(listofImg[i],null).height)*winRate + 'px');
+                // }
+            },
+            //右键菜单操作
+            closeMenuAndDo(e, operate) {
+                if (e.target.className !== '') return;
+                switch (operate) {
+                    case 'copy':
+                        if(this.bookIframeWindow.document.getSelection().toString().length > 200) {
+                            this.message.showMessage('error','复制字数超过200！');
+                            return;
+                        }
+                        var tagNode = null;
+                        var fontNum = 0;
+                        var pageNum = '';
+                        
+                        //获取页码
+                        tagNode = this.getCopyTextNestestPageNum().tagNode;
+                        if(tagNode) {
+                            if(this.preOrNextSearch) {
+                               pageNum = $(tagNode).text().slice($(tagNode).text().indexOf('<')+1,$(tagNode).text().indexOf('结束'));
+                            }else {
+                               pageNum = $(tagNode).text().slice($(tagNode).text().indexOf('<')+1,$(tagNode).text().indexOf('结束'));
+                               pageNum = parseInt(pageNum) + 1 +'页';
+                            }
+                        }
+                        //获取字数
+                        fontNum = this.getCopyTextNestestPageNum().fontNum;
+
+
+                        //拼接其他所需要的信息
+                        var quarryStr = '';
+
+                        var data = {
+                            resourceid:this.parentId,
+                            userid:localStorage.getItem('userId')
+                        }
+
+                        ApiTransfer('get','/resource/detail',JSON.stringify(data),(winResult)=>{
+                           winResult=JSON.parse(winResult)
+                           if(winResult.Success){
+                              console.log(winResult);
+                              var content = this.bookIframeWindow.document.getSelection().toString();
+                              var preContent = content;
+                              content = content.replace(/<[^>]*>/g,'');
+                              content = content.replace(/\[\d+\]/g,'');
+
+                              quarryStr += `<p style="color: rgb(68, 113, 109);">
+                                               ${content}
+                                            </p>
+                                        
+                                            <a href="url" id="${new Date().toLocaleDateString()}" type="book/link" fileid="${this.fileId}" resourceid="${this.sectionid}" bookname="${this.sectionLibList[0].Title}" startindex="${fontNum}" style="font-size:14px;color:#888888;text-decoration:none;">${winResult.Data.Author} ${winResult.Data.Title}    ${winResult.Data.PublishPlace}    ${winResult.Data.Publisher}    ${winResult.Data.PublishDate}  第${pageNum == ''?'0页':pageNum}&nbsp; &nbsp;
+                                            </a>
+
+                                            <p class="prevCont" style="display:none">${preContent}</p>
+                                            <br>
+                                            `
+                              console.log(quarryStr)
+                              //写入剪贴板
+                              Clip(quarryStr);
+                           }else {
+                              ShowMessage(winResult.Description)
+                           }
+                        });
+
+
+                        // 将复制的文字交给后台      
+                        break;
+                    case 'collect':
+                        this.addCollect();
+                        // 根据书      
+                        break;
+                    case 'addMark':
+                        this.addMark(e);
+                        // 根据书      
+                        break; 
+                    case 'bookSearch':
+                        this.openBookSearch();
+                        // 根据书      
+                        break;   
+                    case 'createNote':
+                        this.openNoteWindow();
+                        // 根据书      
+                        break;                
+                    default:
+                        // statements_def
+                        break;
+                }
+
+                this.conMenuShow = false;
+            },
+            //获取复制文字下一个最近的页码标签
+            getCopyTextNestestPageNum() {
+                //首先判断整个文档有没有页码，如果没有直接return
+                var aimNode = null;
+                var isComments = false;
+
+                if($(this.bookIframeWindow.document.body).find('a[href^="http"]').length !== 0) {
+                        // 获取当前copy的标签下一个页码标签
+                        var activeNode = this.bookIframeWindow.document.getSelection().anchorNode;
+
+                        // 特殊标签，需要获取它的父级的兄弟级
+                        var prevNodeArr = ['A','B','I','SPAN','FONT','EM','STRONG'];
+
+                        var aimNode = null;
+
+                        if(activeNode.parentNode.nodeName.toUpperCase() == 'BODY') {
+                            aimNode = activeNode.nextSibling;
+                        }else if(prevNodeArr.indexOf(activeNode.parentNode.nodeName.toUpperCase()) !== -1) {
+                            aimNode = activeNode.parentNode.parentNode;
+                        }else if(activeNode.parentNode.className == 'imgtitle'){
+                            aimNode = activeNode.parentNode.parentNode;
+                        }else {
+                            aimNode = activeNode.parentNode;
+                        }
+
+                        var tagNode = null;
+                        this.preOrNextSearch = true;  //true -- 向后查找   false  -- 向前查找
+
+                        if($(aimNode).hasClass('footnote') || $(aimNode).next().get(0).nodeName.toUpperCase() == 'HR'){
+                            if($(aimNode).find('a[href^="http"]').length !== 0) {
+                                this.preOrNextSearch = true;
+                            }else {
+                                this.preOrNextSearch = false;
+                            }
+                        }else {
+                            this.preOrNextSearch = true;
+                        }
+
+
+                        // if($(aimNode).hasClass('footnote') || $(aimNode).next().get(0).nodeName.toUpperCase() == 'HR'){
+                        //     if($(aimNode).find('a[href^="http"]').length !== 0) {
+                        //         this.preOrNextSearch = true;
+                        //     }else {
+                        //         this.preOrNextSearch = false;
+                        //     }
+                        // }else {
+                        //     this.preOrNextSearch = true;
+                        // }
+                        
+
+
+                        var _this = this;
+                        //这里使用jquery获取页码标签，更快捷
+                        function getTagHasPageNum(aimNode) {
+                            if($(aimNode).find('a[href^="http"]').length !== 0) {
+                                tagNode = $(aimNode).find('a[href^="http"]')[0];
+                                return;
+                            }else {
+                                //根据当前节点是否是最后一个段落 或者 是注释节点来判断，应该向前找还是向后找
+                                if(!_this.preOrNextSearch){
+                                    getTagHasPageNum($(aimNode).prev().get(0))
+                                }else {
+                                    getTagHasPageNum($(aimNode).next().get(0));
+                                } 
+                            }
+                        }
+
+                        getTagHasPageNum(aimNode);
+
+                }else {
+                   tagNode = false;
+                }
+
+
+
+                var fontNum = 0;
+                //获取当前标签之前所有标签的文字数
+                fontNum = this.getBeforeCurTagAllFonts(aimNode);
+
+
+                return {
+                    tagNode:tagNode,
+                    fontNum:fontNum,
+                };
+            },
+            toPath(path) {
+                this.$router.push(path);
+            },
+            // 打开目录
+            openLibCate(type) {
+                type = type || 0; 
+
+                //如果切换为目录
+                if(type == 0 && !this.libOrMap) {
+                   var setTime = setInterval(() => {
+                        if (this.libLeft >= -20) {
+                            this.libLeft = 0;
+                            clearInterval(setTime);
+                            return;
+                        }
+                        this.libLeft += 20;
+                    }, 16)
+                   this.libOrMap = type == 0 ? true : false;
+                   return ;
+                }
+
+                //如果切换为地图
+                if(type == 1 && this.libOrMap) {
+                   var setTime = setInterval(() => {
+                        if (this.libLeft >= -20) {
+                            this.libLeft = 0;
+                            clearInterval(setTime);
+                            return;
+                        }
+                        this.libLeft += 20;
+                    }, 16)
+                   this.libOrMap = type == 0 ? true : false;
+                   return ;
+                }
+
+
+                this.libOrMap = type == 0 ? true : false;
+                if (this.libLeft <= -280) {
+                    var setTime = setInterval(() => {
+                        if (this.libLeft >= -20) {
+                            this.libLeft = 0;
+                            clearInterval(setTime);
+                            return;
+                        }
+                        this.libLeft += 20;
+                    }, 16)
+                } else if (this.libLeft >= -20) {
+                    var setTime = setInterval(() => {
+                        if (this.libLeft <= -280) {
+                            this.libLeft = -300;
+                            clearInterval(setTime);
+                            return;
+                        }
+                        this.libLeft -= 20;
+                    }, 16)
+                }
+            },
+
+            //关闭任意图窗口
+            closeLibOper() {
+               if (this.libLeft >= -280) {
+                    var setTime = setInterval(() => {
+                        if (this.libLeft <= -280) {
+                            this.libLeft = -300;
+                            clearInterval(setTime);
+                            return;
+                        }
+                        this.libLeft -= 20;
+                    }, 16)
+                }
+            },
+            // 改变目录展示
+            changeLib(type) {
+                console.log(type)
+                // type- 0 章节   1 - 图书；
+                this.libIsActive = !this.libIsActive;
+            },
+            // 添加书签
+            addMark(e) {
+
+                var eleMin = this.getScreenStartEle()[0];
+                
+                //获取字数
+                var curMarkPosi = this.getBeforeCurTagAllFonts(eleMin);
+                //获取摘要
+                var abstracts = $(eleMin).text().substr(0,50);
+
+
+                // if(eleMin.nodeName.toUpperCase() == 'IMG') {
+                //     eleMin =  eleMin.parentNode;
+                // }
+
+                var _this = this;
+                //处理重复添加,删除当前页书签
+                if(this.isMarkImgShow) {
+                    //如果此处已经有书签，则应该取消书签,且如果一个页面中有多个书签的话，就需要全部取消
+                         //获取当前页面下所有书签
+                     
+                     var markIds = this.getAllBookMarkByPage();      
+                     _this.deleteCurMark(markIds);
+                     ChangeFavoriteIcon(false, '图文',1);
+                     _this.isMarkImgShow = false;
+
+                     return;
+                 }
+                // if($(eleMin).find('img').length !== 0 ) {
+                //     var flag = false;
+                //    $(eleMin).find('img').each((index,item)=>{
+                //       if($(item).attr('src').indexOf('已添加') !== -1) {
+                //          //如果此处已经有书签，则应该取消书签,且如果一个页面中有多个书签的话，就需要全部取消
+                //          //获取当前页面下所有书签
+                //          var markIds = this.getAllBookMarkByPage();      
+                //          // var itemId = $(item).attr('itemid');
+                //          // $(item).remove();
+
+                //          _this.deleteCurMark(markIds);
+                //          ChangeFavoriteIcon(false, '图文',1);
+                //          _this.isMarkImgShow = false;
+
+                //          flag = true;
+                //       }
+                //    })
+
+                //    if(flag) return;
+                // }
+
+                
+                //添加书签标记
+                $(eleMin).css('position','relative');
+                var imgEle = $('<img src="'+GetProgramFilePath()+'/static/images/已添加书签.png" class="markImg" style="display:none">');
+
+                imgEle.appendTo($(eleMin)).css({
+                   position:'absolute',
+                   left:'-5px',
+                   top:0
+                });
+                ChangeFavoriteIcon(true, '图文',1);
+                this.isMarkImgShow = true;
+
+
+                 // this.setScreenScroll($(eleMin).offset().left, 100,-1);
+
+                 this.addCurMark(curMarkPosi,abstracts,imgEle);
+            },
+            //获取当前标签之前所有标签的文字数
+            getBeforeCurTagAllFonts(ele) {
+                var fontNum = 0;
+                $(ele).prevAll().each((index, item)=>{
+                    fontNum += $(item).text().length;
+                });
+
+                return fontNum;
+            },
+            //上传当前位置书签
+            addCurMark(pos,abstracts,imgEle) {
+                var data = {
+                    position:pos,
+                    resourceid:this.sectionid,
+                    abstracts:abstracts,
+                    fileid:this.fileId,
+                    title:this.sectionLibList[0].Title,
+                    userid:localStorage.getItem('userId')
+                }
+
+                //上傳书签
+                ApiTransfer('post','/bookmark/create',JSON.stringify(data),(winResult)=>{
+                    winResult=JSON.parse(winResult);
+ 
+                    if(winResult.Success){
+                        this.message.showMessage('success','添加书签成功！');
+                        imgEle.attr('itemid',winResult.Data);
+                    }else {
+                        ShowMessage(winResult.Description)
+                    }
+                    
+
+                    this.canIaddNote = true;
+                    this.menuListDisable.addMark = !this.isMarkImgShow;
+                    EnableMenuIcon(true,'图文',1);
+                })
+            },
+            //删除当前位置书签
+            deleteCurMark(markid) {
+               var data={
+                    bookmarkids:markid,
+                    userid:localStorage.getItem('userId')
+               }
+                
+                //下面是配合winform异步获取数据
+                ApiTransfer('post','/bookmark/delete',JSON.stringify(data),(winResult)=>{
+                    winResult=JSON.parse(winResult);
+                    if(winResult.Success){
+                         this.message.showMessage('success','取消书签成功！');
+
+                         this.getMarkData();
+                    }else {
+                        this.message.showMessage('error','取消书签出错！');
+                        this.canIaddNote = true;
+                        this.menuListDisable.addMark = !this.isMarkImgShow;
+                        EnableMenuIcon(true,'图文',1);
+                    }
+
+                    
+                });
+            },
+            //获取页面段落和标题标签集合
+            getPandHtags() {
+                if(!this.bookIframeWindow.document.body) return;
+
+                var listoftags = [];
+                // var tags = ['h1','h2','h3','h4','h5','h6','p','div','br'];
+                var tags = $(this.bookIframeWindow.document.body).children();
+                for(var i = 0 ; i < tags.length ; i ++) {
+                    $(this.bookIframeWindow.document.body).find(tags[i]).each((index,item)=>{
+                        listoftags.push(item);
+                    });
+                }
+
+                return listoftags;
+            },
+            //一进入阅读渲染已有书签
+            getMarkData() {
+                var data = {
+                    resourceid:this.sectionid,
+                    fileid:this.fileId,
+                    userid:localStorage.getItem('userId'),
+                    ps:100,
+                }
+
+                // //此时不允许添加书签
+                this.canIaddNote = false;
+                EnableMenuIcon(false,'图文',1);
+               //获取用户当前资源书签列表
+                ApiTransfer('get','/bookmark/resource_bookmark_list',JSON.stringify(data),(winResult)=>{
+                    winResult=JSON.parse(winResult)
+                    if(winResult.Success){
+                         //首先移除本书上所有绘制的书签
+                       $(this.bookIframeWindow.document.body).find('.markImg').remove();
+
+                        if(winResult.Data.ItemList.length == 0) {
+                            this.canIaddNote = true;
+                            this.menuListDisable.addMark = !this.isMarkImgShow;
+                            EnableMenuIcon(true,'图文',1);
+                            return;
+                        }
+
+
+                        var listoftags = [];
+                        listoftags = this.getPandHtags();
+                        var noteData = null;
+                        
+                        //判断是否是从我的书签列表跳转过来的，在渲染所有书签中顺便就跳转到那个位置
+                       if(localStorage.getItem('notePosition') && localStorage.getItem('notePosition') !== '') {
+                          noteData =  JSON.parse(localStorage.getItem('notePosition')); 
+                       }
+
+                        winResult.Data.ItemList.forEach((item,index)=>{
+    
+                            listoftags.forEach((citem,cindex)=>{
+                                var fontNum = 0;
+                                var nextFontNum = 0;
+                               //计算当前节点之前的字数
+                               $(citem).prevAll().each((nindex, nitem)=>{
+                                  fontNum += $(nitem).text().length;
+                                });
+
+                               $(listoftags[cindex + 1]).prevAll().each((nindex, nitem)=>{
+                                  nextFontNum += $(nitem).text().length;
+                                });
+
+                               if(fontNum - item.Position > 100) {
+                                  //减少循环次数
+                                  return false;
+                               }
+                               
+
+                                if((item.Position >= fontNum && item.Position < nextFontNum) && $(citem).text().indexOf(item.Abstracts) !== -1) {
+                                    //这个位置上就应该添加个书签标示
+                                    //添加书签标记
+                                    $(citem).css('position','relative');
+                                    $('<img src="'+GetProgramFilePath()+'/static/images/已添加书签.png" class="markImg" itemid="'+item.Id+'">').appendTo($(citem)).css({
+                                       position:'absolute',
+                                       left:'-5px',
+                                       top:0,
+                                       display:'none'
+                                    });
+                                    
+                                    //如果是目标书签，跳转到该位置
+                                    if(noteData && noteData.Id == item.Id) {
+
+                                        setTimeout(()=>{
+                                            this.countLeft =  $(citem).offset().left;
+                                            this.bookIframeWindow.document.body.scrollLeft = this.countLeft;   
+                                            localStorage.removeItem('notePosition');
+                                        },1000)
+                                    }
+                                }
+                            })
+                        })
+                        
+
+                        //设置当前屏幕是否显示书签标示
+                        this.setMarkByArea();
+                        setTimeout(()=>{
+                           this.canIaddNote = true;
+                           this.menuListDisable.addMark = !this.isMarkImgShow;
+                           EnableMenuIcon(true,'图文',1); 
+                        }, 500)
+                    }else {
+                        alert('error:'+winResult.Description)
+                        // ShowMessage(winResult.Description)
+                    }
+                })
+
+            },
+
+            //滚动到笔记过来的位置
+            scrollToPosByNote() {
+                var startindex = 0;
+                //判断是否是从我的笔记跳转过来的，跳转到那个位置
+                if(localStorage.getItem('startindex') && localStorage.getItem('startindex') !== '') {
+                   startindex =  parseInt(localStorage.getItem('startindex'));
+                }else return;
+
+                var listoftags = [];
+                listoftags = this.getPandHtags();
+                var noteData = null;
+                
+
+
+                listoftags.forEach((citem,cindex)=>{
+                    var fontNum = 0;
+                    var nextFontNum = 0;
+                   //计算当前节点之前的字数
+                   $(citem).prevAll().each((nindex, nitem)=>{
+                      fontNum += $(nitem).text().length;
+                    });
+
+                   $(listoftags[cindex + 1]).prevAll().each((nindex, nitem)=>{
+                      nextFontNum += $(nitem).text().length;
+                    });
+
+                   if(fontNum - startindex > 100) {
+                      //减少循环次数
+                      return false;
+                   }
+                   
+
+                    if((startindex >= fontNum && startindex < nextFontNum)) {
+                        
+                        setTimeout(()=>{
+                           this.countLeft = $(citem).offset().left;
+                           this.bookIframeWindow.document.body.scrollLeft = this.countLeft;
+
+                           localStorage.removeItem('startindex');
+                        },1000)
+
+                    }
+                })
+
+            },
+            
+            //每次滚动设置当前屏幕区域内的书签展示
+            setMarkByArea() {
+               if(!this.bookIframeWindow) return;
+               if($(this.bookIframeWindow.document.body).find('.markImg').length == 0) return;
+ 
+               var eleMin = this.getScreenStartEle()[0];
+               var eleMax = this.getScreenEndEle()[0];
+               var _this = this;
+              
+               //利用jquery判断这两个节点之间的所有节点，是否含有书签图标，有则隐藏
+
+               var nodesArr = $(eleMin).nextUntil($(eleMax).next());
+               if(nodesArr.length == 0) return;
+   
+               var arr = [];
+                   arr.push(eleMin);
+
+               for(var i = 0 ; i < nodesArr.length ; i ++) {
+                   arr.push(nodesArr[i]);
+               }
+
+               if(this.markTime) clearTimeout(this.markTime);
+               
+               var hasNoteTag = false;
+               for(var i = 0 ; i < arr.length ; i ++) {
+                   if($(arr[i]).find('img').length !== 0 ) {
+                       $(arr[i]).find('img').each((index,item)=>{
+                          if($(item).hasClass('markImg')) {
+                             //如果当前屏幕有多个书签，则保留第一个
+                             //定时器防止闪烁
+                             _this.markTime = setTimeout(()=>{
+                                  _this.isMarkImgShow = true;
+                                  ChangeFavoriteIcon(true,'图文',1);
+                                  clearTimeout( _this.markTime);
+                             }, 500)
+                             
+                             hasNoteTag = true;
+                             return false;
+                          }
+                       })
+                   }
+
+                   if(hasNoteTag) break;
+
+                   if(i == arr.length - 1) {
+                      this.canIaddNote = true;
+                      this.menuListDisable.addMark = !this.isMarkImgShow;
+                      EnableMenuIcon(true,'图文',1);
+                   }
+               }
+            },
+
+            //获取当前窗口下所有的书签id集合，删除使用
+            getAllBookMarkByPage() {
+               if(!this.bookIframeWindow) return;
+               if($(this.bookIframeWindow.document.body).find('.markImg').length == 0) return;
+ 
+               var eleMin = this.getScreenStartEle()[0];
+               var eleMax = this.getScreenEndEle()[0];
+               var _this = this;
+              
+               //利用jquery判断这两个节点之间的所有节点，是否含有书签图标，有则隐藏
+
+               var nodesArr = $(eleMin).nextUntil($(eleMax).next()[0]);
+               if(nodesArr.length == 0) return;
+   
+               var arr = [];
+                   arr.push(eleMin);
+
+               for(var i = 0 ; i < nodesArr.length ; i ++) {
+                   arr.push(nodesArr[i]);
+               }
+
+
+               var bookmarkids = [];
+               
+               for(var i = 0 ; i < arr.length ; i ++) {
+                   if($(arr[i]).find('img').length !== 0 ) {
+                       $(arr[i]).find('img').each((index,item)=>{
+                          if($(item).hasClass('markImg')) {
+                             //找到书签，将书签保存到一个数组，return出去
+                            bookmarkids.push($(item).attr('itemid'));
+                          }
+                       })
+                   }
+               }
+
+               return bookmarkids.join(',')
+            },
+
+            //获取屏幕左上角第一个节点
+            getScreenStartEle() {
+                var eleArr = [];
+                var round = 1;
+                var _this = this;
+                
+                //获取一个范围里的所有坐标元素
+                function getAreaElements() {
+                   for(var i = 0; i < 100*round; i++) {
+                        var ele = _this.bookIframeWindow.document.elementFromPoint(i, i);
+                        if(ele.nodeName.toUpperCase() !== 'BODY' && ele.nodeName.toUpperCase() !== 'HTML') {
+                           eleArr.push(ele);
+                        }
+                    }
+
+                    if(eleArr.length == 0) {
+                        round += 1 ;
+                        eleArr = getAreaElements(round);
+                    }
+
+                }
+                
+                getAreaElements();
+                
+                return eleArr;
+            },
+
+            //获取屏幕右下角第一个节点
+            getScreenEndEle() {
+                var eleArr = [];
+                var round = 1;
+                var _this = this;
+                
+                //获取一个范围里的所有坐标元素
+                function getAreaElements() {
+                   for(var i = 0; i < 100*round; i++) {
+                        var ele = _this.bookIframeWindow.document.elementFromPoint(_this.winWidth - 50 - i,_this.winHeight - 50 - i);
+                        if(!ele) continue;
+
+                        if(ele.nodeName.toUpperCase() !== 'BODY' && ele.nodeName.toUpperCase() !== 'HTML') {
+                           eleArr.push(ele);
+                           break;
+                        }
+                    }
+
+                    if(eleArr.length == 0) {
+                        round += 1 ;
+                        getAreaElements();
+                    }
+
+                }
+                
+                getAreaElements();
+                return eleArr;
+            },
+            
+            //添加或取消收藏
+            addCollect() {
+                //验证有没有用户信息
+              var hasUserId = volidUserId();
+              if(!hasUserId) return;
+
+              if(env=="dev"){
+                 this.$http.post("/favorite/createorcancel", {
+                  objectid: this.sectionid,
+                  objecttype: 1, //1图书章节地图2人物事件
+                  userid: localStorage.getItem("userId")
+                })
+                .then((res) => {
+                    this.menuListDisable.collect = !this.menuListDisable.collect;
+                    if (res.data.Description=="收藏成功") {
+                        this.message.showMessage('success','收藏成功！');
+                        ChangeFavoriteIcon(true,'图文',2);
+                    } else {
+                        this.message.showMessage('success','取消收藏成功！');
+                        ChangeFavoriteIcon(false,'图文',2);
+                    }
+                })
+                .catch((err) => {
+                    console.log(err)
+                })
+              }else if(env=="prod"){
+                // var winResult = ApiTransfer('post','/favorite/createorcancel','objectid='+this.sectionid+'&objecttype=1&userid='+localStorage.getItem("userId"));
+
+                // winResult=JSON.parse(winResult)
+                // if(winResult.Success){
+                //     this.hasCollect = !this.hasCollect;
+                //     if (winResult.Description=="收藏成功") {
+                //         ShowMessage('收藏成功！');
+                //     } else {
+                //         ShowMessage('取消收藏成功！')
+                //     }
+                // }
+
+                var data = {
+                    objectid:this.sectionid,
+                    objecttype:1,
+                    userid:localStorage.getItem("userId")
+                }
+
+                //下面是配合winform异步获取数据
+                ApiTransfer('post','/favorite/createorcancel',JSON.stringify(data),(winResult)=>{
+                    winResult=JSON.parse(winResult)
+                    if(winResult.Success){
+                        this.hasCollect = !this.hasCollect;
+                        if (winResult.Description=="收藏成功") {
+                            ChangeFavoriteIcon(true,'图文',2);
+                             this.message.showMessage('success','收藏成功！');
+                        } else {
+                            ChangeFavoriteIcon(false,'图文',2);
+                            this.message.showMessage('success','取消收藏成功！');
+                        }
+                    }else {
+                        ShowMessage(winResult.Description)
+                    }
+                });
+              }
+            },
+
+            getRelatedMap() {
+
+            },
+            //检查是否已经收藏
+            gethasCollect() {
+                //验证有没有用户信息
+              var hasUserId = volidUserId();
+              if(!hasUserId) return;
+               if(env=="dev"){
+                    this.$http("/favorite/list",{
+                        params:{
+                            userid:localStorage.getItem('userId'),
+                            type:1,     //收藏类别0-全部1图书2章节3地图4事件5人物
+                        }
+                    })
+                    .then((res)=>{
+                        // this.dataList=res.data.Data.ItemList
+
+                    })
+                    .catch((err)=>{
+                        console.log(err)
+                    })
+                }else if(env=="prod"){
+                    // var winResult = ApiTransfer('get','/favorite/list','type=1&userid='+localStorage.getItem('userId'));
+                    // winResult=JSON.parse(winResult)
+                    // if(winResult.Success){
+                    //     for(var i = 0 ; i < winResult.Data.ItemList.length ; i ++) {
+                    //         if(this.sectionid == winResult.Data.ItemList[i].ObjectId) {
+                    //            this.hasCollect = true;
+                    //            break;
+                    //        }
+
+                    //        if(i == winResult.Data.ItemList.length - 1) {
+                    //            // this.$set(this.menuListDisable,'collect',false)
+                    //            this.hasCollect = false
+                    //        }
+                    //     }
+                    // }
+                    
+                    var data = {
+                        type:1,
+                        userid:localStorage.getItem('userId')
+                    }
+
+                    //下面是配合winform异步获取数据
+                    ApiTransfer('get','/favorite/list',JSON.stringify(data),(winResult)=>{
+                        winResult=JSON.parse(winResult)
+                        if(winResult.Success){
+                            for(var i = 0 ; i < winResult.Data.ItemList.length ; i ++) {
+                                if(this.sectionid == winResult.Data.ItemList[i].ObjectId) {
+                                   this.hasCollect = true;
+                                   ChangeFavoriteIcon(true,'图文',2);
+                                   break;
+                                }
+
+                               if(i == winResult.Data.ItemList.length - 1) {
+                                   // this.$set(this.menuListDisable,'collect',false)
+                                   this.hasCollect = false;
+                                   ChangeFavoriteIcon(false,'图文',2);
+                               }
+                            }
+                        }else {
+                            ShowMessage(winResult.Description)
+                        }
+                    });
+                }
+            },
+            //打开文内搜索界面
+            openBookSearch() {
+               if (env == "dev") {
+                    window.location.href = ymUrl + '/bookSearch?iframeSrc='+this.iframeSrc;
+                } else if (env == "prod") {
+                    if(this.canIaddNote) {
+                        var isOpenBookSearch = IsOpenReadSearch();
+
+                        if(!isOpenBookSearch) {
+                           localStorage.setItem('iframeSrc','sectionId='+this.sectionid+'&iframeSrc='+this.iframeSrc+'&formId='+GetFormId());
+                           // SaveArgument('iframeSrc='+this.iframeSrc+'&formId='+GetFormId())
+                           loadForm('/index.html#/bookSearch','文内搜索',this.sectionLibList[0].Title + '-文内检索',true,GetFormId(),this.sectionid+'')
+                        }
+                    }
+                }
+            },
+            //打开文内搜索界面
+            openNoteWindow() {
+                if(env == 'dev') {
+                   window.location.href = ymUrl + '/noteEditor';
+                }else if(env == 'prod') {
+                  if(this.canIaddNote) {
+                      loadForm('/static/noteEditor.html','笔记','新增笔记',true);
+                    } 
+                }
+            },
+            //改变iframe链接地址
+            changeIframeSrc(src,index,clickItemId) {
+                // if ((!index && index !== 0) && !src) return;
+                if (src) {
+                    if(this.libLeft >= -280) {
+                       this.openLibCate();
+                    }
+                    this.iframeSrc = src;
+                    return;
+                }
+                
+                if (index || index == 0) {
+                    //验证有没有用户信息
+                  var hasUserId = volidUserId();
+                  if(!hasUserId) return;
+
+                    //单独处理点击切换目录的index的值
+                    if(clickItemId) {
+                       //判断是否能匹配到这个id,如果匹配不到，说明是点击的章，不是节，则return
+                       var isIdMatched = false; 
+                       
+                       this.tableofSections.forEach((titem,tindex)=>{
+                          if(titem.Id == clickItemId){
+                             index = tindex;
+                             isIdMatched = true;
+                          }
+                       })
+
+                       if(!isIdMatched) return;
+                    }
+
+                    this.curSectionIndex = index;
+                    if(this.libLeft >= -280) {
+                       this.openLibCate();
+                    }
+
+                    //检查是否开启了文内检索，开启了的话就关掉
+                    localStorage.setItem('closeBookSearchBySectionId', this.sectionid);
+
+
+                    //防止页面没刷新，用户在下载中心删除了地图，再点这个地图报错，需要再次验证是否有本地文件
+                    GetDownLoadedResources(this.tableofSections[index].Id+'',localStorage.getItem('userId'),(hasDownLoadedContent)=>{
+
+                      hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+
+                      if(hasDownLoadedContent.length == 0) {
+                         //此时被用户删除了这个文件，重新去下载
+                       this.loading = true;
+                       this.downLoadPercent = 0;
+                       var item = this.tableofSections[index]; 
+                       
+                       //新增一条足迹
+                       ApiTransfer('get','/resource/detail',JSON.stringify({
+                                  resourceid: item.Id,
+                                  userid:localStorage.getItem('userId')
+                              }),(winResult)=>{});
+                           
+                      
+                            var data = {
+                                fileid:item.DefaultFileId,
+                                isPC:true,
+                                userid:localStorage.getItem('userId'),
+                                type:2,
+                                resourceid:item.Id,
+                                source:item.Source,
+                                title:item.Title,
+                            }
+
+
+                            //多线程异步下载
+                              DownLoadProgress('get','/file/stream',JSON.stringify(data),(progress,nativeUrl,err)=>{
+
+                                    if(err) {
+                                            OpenForm(480,500,'/index.html#/userCenter','个人信息');
+                                            localStorage.setItem('fromWhere',3);
+                                            this.loading = false;
+                                      }else {
+                                          item.nativeUrl = nativeUrl;
+                                          //获取下载进度
+                                          if (Math.floor(progress) >= 100) {
+                                              this.downLoadPercent = 100;
+                                              item.hasDown = true;
+
+                                              this.sectionid = item.Id;
+                                              this.bookSecret = item.Secret;
+                                              this.nativeUrl = item.nativeUrl;
+                                              this.fileId = item.DefaultFileId;
+                                              // this.parentId = item.ParentId;
+
+                                              var a = ReadBook(this.nativeUrl,this.bookSecret);
+                                              this.sectionLibList = JSON.parse(a);
+                                              this.iframeSrc = this.sectionLibList[0].Src;
+
+
+                                              //初始化下一章的数据
+                                              SetTabTitle(this.sectionLibList[0].Title,GetFormId());
+                                              //获取是否已经收藏
+                                              // //清理文内检索数据
+                                              // this.clearCurBookSearchData();
+                                              this.gethasCollect(); 
+                                              //获取相关地图
+                                              this.getCurSectionMapData(); 
+                                              
+
+                                              this.loading = false;
+                                            } else {
+                                               this.downLoadPercent = Math.floor(progress);
+                                            }
+
+                                            // this.$set(this.bookListData, index, item)
+                                      }
+                              });
+                      }else {
+
+                           //如果是已经下载完成的
+                           // 要获取本地路径 和 密钥
+                            var item = this.tableofSections[index];
+
+                            //新增一条足迹
+                             ApiTransfer('get','/resource/detail',JSON.stringify({
+                                  resourceid: item.Id,
+                                  userid:localStorage.getItem('userId')
+                              }),(winResult)=>{});
+                            
+                            this.sectionid = item.Id;
+                            this.bookSecret = item.Secret;
+                            this.nativeUrl = item.nativeUrl;
+                            this.fileId = item.DefaultFileId;
+                            // this.parentId = item.ParentId;
+                            
+
+                            var a = ReadBook(this.nativeUrl,item.Secret);
+                            this.sectionLibList = JSON.parse(a);
+                            this.iframeSrc = this.sectionLibList[0].Src;  
+                            
+
+                            SetTabTitle(this.sectionLibList[0].Title,GetFormId());
+
+                            //获取是否已经收藏
+                            this.gethasCollect(); 
+                            //获取相关地图
+                            this.getCurSectionMapData(); 
+                      }
+                    });
+
+                    return;
+                }
+            },
+            //获取所有的标题的offsetLeft, 不是top
+            getSectionTop(type) {
+
+                //防止获取不到h2，依次用h3和h1代替
+                this.thisIframeSections = this.bookIframeWindow.document.getElementsByTagName('h2');
+                if(this.thisIframeSections.length == 0) {
+                   this.thisIframeSections = this.bookIframeWindow.document.getElementsByTagName('h3');
+                   if(this.thisIframeSections.length == 0) {
+                      this.thisIframeSections = this.bookIframeWindow.document.getElementsByTagName('h1');
+                   }
+                }
+
+                //这里实际是获取的left集合，取名字错了成了top，懒得改
+                this.thisIframeSectionTops = [];
+
+                // if (this.isTwoCol) {
+                for (let i = 0; i < this.thisIframeSections.length; i++) {
+                    this.thisIframeSectionTops.push(this.thisIframeSections[i].offsetLeft);
+                }
+                // } else {
+                //     for (let i = 0; i < this.thisIframeSections.length; i++) {
+                //         this.thisIframeSectionTops.push(this.thisIframeSections[i].offsetTop);
+                //     }
+                // }
+            },
+            // 设置底部显示小节名称及进度
+            setIframeReadingSectionName() {
+
+                var scrollTop = this.bookIframeWindow.document.body.scrollTop;
+                var scrollLeft = this.bookIframeWindow.document.body.scrollLeft;
+                    
+                //每次滚动就去除已添加书签 和  此时不允许添加书签
+                this.isMarkImgShow = false;
+                EnableMenuIcon(false,'图文',1);
+
+
+                this.canIaddNote = false;
+                ChangeFavoriteIcon(false, '图文',1);
+
+                this.setScreenScroll(scrollLeft, 300) //设置屏幕滚动位置
+
+                this.readPercent = parseInt(scrollLeft / this.bookIframeWindow.document.body.scrollWidth * 100);
+
+                // console.log(this.readPercent)
+                if (this.bookIframeWindow.document.body.scrollWidth - scrollLeft <= this.winWidth * 0.95) {
+                    this.readPercent = 100;
+                }
+
+                //刚进入阅读的时候
+                if (scrollLeft < this.thisIframeSectionTops[0] - 100 ) {
+                    this.sectionName = this.bookIframeWindow.document.getElementsByTagName('h1')[0].innerText;
+                    return;
+                }
+
+                for (let i = 0; i < this.thisIframeSectionTops.length; i++) {
+
+                    //渲染每个小节名
+                    if (scrollLeft >= this.thisIframeSectionTops[i] - 100 && scrollLeft < this.thisIframeSectionTops[i + 1] - 100) {
+                        this.sectionName = this.thisIframeSections[i].innerText;
+                        break;
+                    }
+                    
+                    //当走到最后的时候
+                    if (i == this.thisIframeSectionTops.length - 1) {
+                        this.sectionName = this.thisIframeSections[i].innerText;
+                    }
+                }
+
+
+                // }
+            },
+            //设置屏幕滚动a
+            setScreenScroll(scrollLeft, time,type = 0) {
+
+                //监听屏幕滚动结束事件
+                if (this.scrollTimer)
+                    clearTimeout(this.scrollTimer)
+
+                this.scrollTimer = setTimeout(() => {
+
+                    var scrollLeftCount = (scrollLeft - scrollLeft % (this.winWidth * 0.95)) / (this.winWidth * 0.95);
+                    
+                    //不足半屏向左调整
+                    if (scrollLeft % (this.winWidth * 0.95) / (this.winWidth * 0.95) <= 0.5) {
+
+                        if(!(this.bookIframeWindow.document.body.scrollWidth - (this.countLeft + this.winWidth) <= this.winWidth * 0.95/2)) {
+                            //如果翻滚到最后一页，不需要调整，防止看不了最后一页
+                            this.countLeft = scrollLeftCount * (this.winWidth * 0.95);
+                        }
+                    } else if (scrollLeft % (this.winWidth * 0.95) / (this.winWidth * 0.95) > 0.5) {
+                        //大于半屏向右调整
+                        if(type == -1) {
+                           this.countLeft = this.isTwoCol?scrollLeftCount * (this.winWidth * 0.95) :　(scrollLeftCount + 1) * (this.winWidth * 0.95);
+                        }else {
+                           this.countLeft = (scrollLeftCount + 1) * (this.winWidth * 0.95); 
+                        }
+                        // this.bookIframeWindow.document.body.scrollLeft = (scrollLeftCount + 1) * (this.winWidth*0.95) ;
+                    }
+
+                    // this.bookIframeWindow.document.body.scrollLeft = this.countLeft;
+
+                    this.flexMove1(this.bookIframeWindow.document.body, this.countLeft,10);
+
+                    //设置当前区域的书签展示
+                    this.setMarkByArea();
+
+                    setTimeout(()=>{
+                       this.canIaddNote = true; 
+                       this.menuListDisable.addMark = !this.isMarkImgShow;
+                       EnableMenuIcon(true,'图文',1); 
+                    }, 600)
+
+                }, time)
+
+                this.scrollCount++;
+            },
+            //设置背景色
+            setBgColor(color) {
+                if (color) {
+
+                    this.bookIframeWindow.document.body.style.background = color;
+                    this.bottomBg = color;
+                    document.getElementById('bookCont').style.background = color;
+                } else {
+                    color = this.bottomBg;
+                    // color = 'rgb('+Math.ceil(Math.random()*255)+','+Math.ceil(Math.random()*255)+','+Math.ceil(Math.random()*255)+')' || color ;
+                    this.bookIframeWindow.document.body.style.background = color;
+                    this.bottomBg = color;
+                }
+            },
+            // 设置字体
+            setFontSize(type) {
+            
+                // type = -1 --缩小  1 -- 放大
+                var action;
+                var eleMin = null;
+
+                if (!type) {
+                    action = this.fontCount * 2;
+                } else {
+                    if (type == -1) {
+                        action = -2;
+                        this.fontCount--;
+                    } else if (type == 1) {
+                        action = 2;
+                        this.fontCount++;
+                    }
+
+                    //此时是人为的放大缩小，这个时候如果已经保存就直接使用 如果没保存，就保存左上角第一个元素
+                    this.firstEle =  this.firstEle ? this.firstEle:this.getScreenStartEle()[0];
+                }
+
+
+                var listOFIframeNodes = this.bookIframeWindow.document.getElementsByTagName('*');
+                for (var i = 0; i < listOFIframeNodes.length; i++) {
+                    listOFIframeNodes[i].style.fontSize = parseInt(getComputedStyle(listOFIframeNodes[i], null).fontSize) + action + 'px';
+                }
+
+                if(this.firstEle) {
+                   // 设置回到之前阅读位置,要判断是单栏还是双栏
+                   //如果是单栏
+                   // if(!this.isTwoCol) {
+                   //    this.countLeft = this.firstEle.offsetLeft;
+                   //    this.bookIframeWindow.document.body.scrollLeft = this.countLeft;
+                   //    // this.flexMove1(this.bookIframeWindow.document.body, this.countLeft);
+                   // }else {
+                   //    console.log(this.firstEle)
+                   //    //此时是双栏，要根据是在左半屏还是右半屏来判断
+                   //    console.log(this.firstEle.offsetLeft % (this.winWidth * 0.95 - 0.3) / (this.winWidth * 0.95 - 0.3));
+                   //    // if(this.firstEle.offsetLeft % (this.winWidth * 0.95 - 0.3) /) {
+
+                   //    // }                    
+                   //    this.countLeft = this.firstEle.offsetLeft;
+                   //    this.flexMove1(this.bookIframeWindow.document.body, this.countLeft);
+                   // }
+                   // 
+                   this.countLeft = this.firstEle.offsetLeft;
+                   this.bookIframeWindow.document.body.scrollLeft = this.countLeft;
+
+                }
+                
+                
+
+                //设置进度
+                this.getSectionTop();
+                this.setIframeReadingSectionName();
+
+
+            },
+            //页码操作
+            togglePageNum(type) {
+                //设置页码
+
+                if (type !== -1) {
+                    this.pageNumShow = !this.pageNumShow;
+                    if(this.pageNumShow) {
+                        ChangeFavoriteIcon(true, '图文',3);
+                    }else {
+                        ChangeFavoriteIcon(false, '图文',3);
+                    }
+                }
+
+                var listOFIframeNodes = $(this.bookIframeWindow.document).find('a[href^="http://"]');
+                var _this = this;
+                listOFIframeNodes.each(function(index,item) {
+                    $(item).css({
+                            textDecoration:'none',
+                            color:'#666',
+                            cursor:'default',
+                            fontSize:'12px'
+                        });    
+                    var preText = $(item).text().replace(/</g,'');
+                        preText = preText.replace(/>/g,'');
+                        preText = preText.replace('第','');
+
+                    $(item).text('<'+preText+'>');
+                    if (_this.pageNumShow) {
+                        $(item).show();
+                        
+                    } else {
+                        $(item).hide();
+                    }
+                })
+
+            },
+            //鼠标悬浮到窗口左右时出现箭头
+            showExchange(e) {
+
+               if(e.clientX <= 70 || e.clientX >= this.winWidth - 70) {
+                  this.bodyMouseenter = true;
+               }else if(e.clientX <= 0 || e.clientX >= this.winWidth) {
+                  this.bodyMouseenter = false;
+               }else {
+                  this.bodyMouseenter = false;
+               }
+            },
+            //进入左右箭头
+            enterArrowSrc(type) {
+                // -1 左箭头 1 右箭头
+                switch (type) {
+                    case -1:
+                        this.leftArrow = './images/选中-左.png';
+                        break;
+                    case 1:
+                        this.rightArrow = './images/选中-右.png';
+                        break;
+                    default:
+                        // statements_def
+                        break;
+                }
+            },
+            leaveArrowSrc(type) {
+                // -1 左箭头 1 右箭头
+                switch (type) {
+                    case -1:
+                        this.leftArrow = './images/未选中-左.png';
+                        break;
+                    case 1:
+                        this.rightArrow = './images/未选中-右.png';
+                        break;
+                    default:
+                        // statements_def
+                        break;
+                }
+            },
+            // 单双栏切换
+            togglePageCol(type) {
+
+                if (type !== -1) {
+                    // this.countLeft = 0;
+                    this.isTwoCol = !this.isTwoCol;
+                }
+
+                var _this = this;
+                var iframeBody = $(_this.bookIframeWindow.document.body);
+                if (_this.isTwoCol) {
+                    //此时是双栏
+                    iframeBody.css({
+                        columnCount: 2,
+                        columnWidth: 'auto'
+                    })
+                } else {
+                    //此时是单栏
+                    iframeBody.css({
+                        columnCount: 1,
+                        columnWidth: 'auto',
+                        width: '100%'
+                    })
+                }
+
+                //单双栏公共
+                iframeBody.css({
+                    columnGap: _this.winWidth / 20 + 'px',
+                    // columnBreakInside:'avoid',
+                    height: _this.winHeight - 80 + 'px',
+                    marginTop: '40px'
+                })
+
+                
+                iframeBody.css('-webkit-column-break-inside','avoid');
+
+
+            },
+
+            //上下页切换函数
+            pageExchange(type) {
+                //手动翻页，清除之前保存的左上角第一个元素
+                this.firstEle = null;
+
+                switch (type) {
+                    case -1:
+                        this.countLeft -= (this.winWidth * 0.95 - 0.3);
+                        this.flexMove1(this.bookIframeWindow.document.body, this.countLeft)
+                        break;
+                    case 1:
+                        if(this.bookIframeWindow.document.body.scrollWidth - (this.countLeft + this.winWidth) <= this.winWidth * 0.95/2){
+                            //当滚动最后一页，只有半页的时候，始终切不过去，所以这种情况下只切半页
+                            this.countLeft += (this.winWidth * 0.95 + 0.3)/2;
+                        }else {
+                            this.countLeft += (this.winWidth * 0.95 + 0.3);
+                        }
+                        this.flexMove1(this.bookIframeWindow.document.body, this.countLeft)
+                        break;
+                    default:
+                        // statements_def
+                        break;
+                }
+            },
+            //通过按键上下页切换
+            changePageByKeyDown(e) {
+                var type = null;
+                if (e.keyCode == 37) {
+                    type = -1;
+                } else if(e.keyCode == 39){
+                    type = 1;
+                }
+                //获取向右还是向左 1- 向左 -1 -向右
+               this.pageExchange(type);
+            },
+            flexMove1(obj, target,time = 30) {
+                target = Math.round(target * 10) / 10;
+                
+                //边界处理
+                if (target < 0) {
+                    this.countLeft = 0;
+                    return;
+                }
+
+                if (target > this.bookIframeWindow.document.body.scrollWidth) {
+                    // this.countLeft = this.bookIframeWindow.document.body.scrollWidth
+                    this.countLeft -= (this.winWidth * 0.95);
+                    return;
+                }
+
+                var _this = this;
+
+                var isSpeed = 0;
+                var left = obj.scrollLeft;
+                clearInterval(obj.timer)
+                obj.timer = setInterval(function() {
+                    isSpeed = (target - obj.scrollLeft) / 5; //设置当前速度
+                    isSpeed *= 0.7; //当前速度乘以弹性系数
+
+                    left += isSpeed; //left随速度不断累加
+                    if (Math.abs(isSpeed) < 1 && Math.abs(left - target) < 1) {
+                        clearInterval(obj.timer);
+                        obj.timer = null;
+                        obj.scrollLeft = target;
+                    } else {
+                        obj.scrollLeft = left;
+                    }
+                }, time)
+            },
+
+            //开始下载
+            startDownLoad(item, index) {
+                if(item.hasDownLoad){
+                    this.closeLibOper();
+                    this.toMapView(item,item.Id);
+                    return;
+                }; 
+                item.startDownLoad = true;
+                item.top = 0;
+                
+                if(env == 'dev') {
+                    var setTime = setInterval(() => {
+                        if (item.downLoadPercent >= 100) {
+                            item.downLoadPercent = 100;
+                            item.hasDownLoad = true;
+
+                            setTimeout(() => {
+                                var setTime1 = setInterval(() => {
+                                    if (item.top <= -153) {
+                                        item.top = -153;
+                                        clearInterval(setTime1);
+                                    } else {
+                                        item.top -= 2;
+                                    }
+                                    this.$set(this.maplistData, index, item)
+                                }, 1)
+                            }, 500)
+                            clearInterval(setTime);
+
+                        } else {
+                            item.downLoadPercent += 1;
+                        }
+                        this.$set(this.maplistData, index, item)
+                    }, 1)
+                }else if(env == 'prod') {
+                    // var resFromWinF = ApiTransfer('get','/resource/defaultfile_open','resourceid='+item.Id +'&userid='+localStorage.getItem('userId')+'&activatedcode=16267308418');
+                    // resFromWinF = JSON.parse(resFromWinF);
+                    // item.downloadUrl = resFromWinF.Data.Url;
+                    // var downdata = {
+                    //       downloadUrl:item.downloadUrl,
+                    //       resourceid:item.Id+'',
+                    //       type:item.Type,
+                    //       title:item.Title,
+                    //       source:item.Source,
+                    //       userid:localStorage.getItem('userId')
+                    //    }
+
+                    // item.nativeUrl = DownLoad(JSON.stringify(downdata));
+                    
+                    // // ShowMessage(nativeUrl);
+                    // var setTime = setInterval(() => {
+                    //     if (item.downLoadPercent >= 100) {
+                    //         item.downLoadPercent = 100;
+                    //         item.hasDownLoad = true;
+
+                    //         setTimeout(() => {
+                                
+                    //         }, 500)
+                    //         clearInterval(setTime);
+
+                    //     } else {
+                    //         item.downLoadPercent = Math.floor(GetDownLoadProgress(item.downloadUrl));
+                    //     }
+                    //     this.$set(this.maplistData, index, item)
+                    // }, 500)
+                    
+                    var data = {
+                        resourceid:item.Id,
+                        userid:localStorage.getItem('userId'),
+                        fileid:item.DefaultFileId,
+                        isPC:true,
+                        type:3,
+                        source:item.Source,
+                        title:item.Title,
+                    }
+
+                    //下面是配合winform异步获取数据
+                    // ApiTransfer('get','/resource/defaultfile_open',JSON.stringify(data),(resFromWinF)=>{
+                    //     resFromWinF = JSON.parse(resFromWinF);
+                    //     item.downloadUrl = resFromWinF.Data.Url;
+                    //     var downdata = {
+                    //           downloadUrl:item.downloadUrl,
+                    //           resourceid:item.Id+'',
+                    //           type:item.Type,
+                    //           title:item.Title,
+                    //           source:item.Source,
+                    //           userid:localStorage.getItem('userId')
+                    //        }
+
+                    //     // item.nativeUrl = DownLoad(JSON.stringify(downdata));
+
+                    //     DownLoad(JSON.stringify(downdata),(nativeUrl)=>{
+                    //         item.nativeUrl = nativeUrl;
+                    //         GetDownLoadProgress(item.downloadUrl,(progress)=>{
+                    //             if (Math.floor(progress) >= 100) {
+                    //                 item.downLoadPercent = 100;
+                    //                 item.hasDownLoad = true;
+                    //             } else {
+                    //                 item.downLoadPercent = Math.floor(progress);
+                    //             }
+
+                    //             this.$set(this.bookListData, index, item)
+                    //         })
+                    //     })
+                    // });
+
+                    //多线程异步下载
+                    DownLoadProgress('get','/file/stream',JSON.stringify(data),(progress,nativeUrl,err)=>{
+                      
+                      if(err) {
+                            OpenForm(480,500,'/index.html#/userCenter','个人信息');
+                            localStorage.setItem('fromWhere',3);
+                            item.startDownLoad = false;
+                      }else {
+                          item.nativeUrl = nativeUrl;
+                          //获取下载进度
+                          if (Math.floor(progress) >= 100) {
+                              item.downLoadPercent = 100;
+                              item.hasDownLoad = true;
+                          } else {
+                              item.downLoadPercent = Math.floor(progress);
+                          }
+
+                      }
+
+                      this.$set(this.maplistData, index, item)
+                    });
+                    
+                }   
+            },
+            //跳转地图阅读页面
+            toMapView(item,resourceid) {
+                if(item.hasDownLoad) {
+                    if(env == 'dev') {
+                       window.location.href = './static/map.html?resourceid=' + resourceid;
+                    }else if(env == 'prod') {
+                           SaveArgument('imgSrc='+item.nativeUrl+'&resourceid='+resourceid);
+                           loadForm('/static/map.html','地图阅读',item.Title,true);
+                           
+                    }
+                }
+            },
+            showDownIcon(item,index) {
+                if(!item.hasDownLoad) item.showHasDownLoad = !item.showHasDownLoad;
+                this.$set(this.maplistData,index,item)
+            },
+            //获取图书的章节列表
+              getBookSectionList(bookid) {
+                if(env=="dev"){
+                     this.$http.get("/resource/tableofcontent", {
+                          params: {
+                              resourceid: bookid
+                          }
+                      })
+                      .then((res) => {
+                        this.loading = false;
+                        this.bookLibList = res.data.Data;
+
+                        this.bookLibList.forEach((item,index)=>{
+                           item['hasDown'] = false;
+                           item['downLoadPercent'] = 0;
+                           item['isExpand'] = false;
+                        })
+                      })
+                      .catch((err) => {
+                        this.loading = false;
+                      })
+                }else if(env=="prod"){
+                   var data = {
+                       resourceid: bookid
+                    }
+
+                   // var winResult = ApiTransfer('get','/resource/tableofcontent','resourceid='+bookid);
+                   // winResult = JSON.parse(winResult)
+                   // if(winResult.Success){
+                   //    this.bookLibList = winResult.Data;
+                   //    this.bookLibList.forEach((item,index)=>{
+                   //         item['hasDown'] = false;
+                   //         if(item.Id == this.sectionid) {
+                   //             this.curSectionIndex = index;
+                   //         }
+                   //      })
+                   // } 
+                    
+                    var data = {
+                        resourceid:bookid
+                    }
+                   //下面是配合winform异步获取数据
+                    ApiTransfer('get','/resource/tableofcontent',JSON.stringify(data),(winResult)=>{
+                        winResult = JSON.parse(winResult)
+                       if(winResult.Success){
+                          this.bookLibList = winResult.Data;
+                        
+
+                          this.bookLibList.forEach((item,index)=>{
+                               if(item.Sections) {
+                                  item.Sections.forEach((secItem,secIndex)=>{
+                                        this.tableofSections.push(secItem);
+                                  })
+                               }else {
+                                  this.tableofSections.push(item);
+                               }
+                          })
+   
+                          var listIds = [];
+                          //向后台发送缓存验证,获取已经下载过的文件
+                          //将获取到的所有章节的数组遍历，找出当前的epub
+                          this.tableofSections.forEach((item,index)=>{
+                              item['hasDown'] = false;
+                              listIds.push(item.Id);
+                              if(item.Id == this.sectionid) {
+                                    this.curSectionIndex = index;
+                              }
+                          })
+
+                          //异步获取下载
+                          GetDownLoadedResources(listIds.join(','),localStorage.getItem('userId'),(hasDownLoadedContent)=>{
+                              hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+
+                              if(hasDownLoadedContent.length == 0) return; 
+
+                              hasDownLoadedContent.forEach((getItem,getIndex)=>{
+                                 this.tableofSections.forEach((bookItem,bookIndex)=>{
+                                    if(getItem.ResourceId == bookItem.Id) {
+                                        bookItem['hasDown'] = true;
+                                        bookItem['nativeUrl'] = getItem.FilePath;
+                                    }  
+                                 })
+                              })
+                            })
+                          
+                       }
+                    });
+                }
+                  
+          },
+          //获取当前章节其他信息，如fileid
+          getCurSectionOtherInfo() {
+               // 获取资源详情，然后根据详情获得fileid
+                ApiTransfer('get','/resource/detail',JSON.stringify({resourceid:this.sectionid}),(winResult)=>{
+                    winResult=JSON.parse(winResult)
+
+                    this.fileId = winResult.Data.DefaultFileId;
+
+                }); 
+          },
+          //获取地图相关数据
+          getCurSectionMapData() {
+              var _this = this;
+               //获取相关地图
+              if(env == 'dev') {
+                   $.ajax({
+                        url: baseUrl + "/resource/explicitwordlist",
+                        methods: "GET",
+                        data: {
+                            type: 4,
+                            resourceid: _this.sectionid
+                        },
+                        success: function(res) {
+                             res = JSON.parse(res);
+                             _this.maplistData = res.Data;
+                            if (_this.maplistData.length !== 0) {
+                                _this.maplistData.forEach((item, index) => {
+                                    item['hasDownLoad'] = false;
+                                    item['showHasDownLoad'] = true;
+                                    item['startDownLoad'] = false;
+                                    item['downLoadPercent'] = 0;
+                                })
+                            }
+                        }
+                    })
+                }else if(env == 'prod') {
+                    var data = {
+                        resourceid:this.sectionid,
+                        type:4
+                    }
+                    //下面是配合winform异步获取数据
+                    ApiTransfer('get',"/resource/explicitwordlist",JSON.stringify(data),(resFromWinF)=>{
+                        resFromWinF = JSON.parse(resFromWinF);
+
+                        if(resFromWinF.Code == 200) {
+                            this.maplistData = resFromWinF.Data;
+
+                            if (this.maplistData.length !== 0) {
+                                var listIds = [];
+                                this.maplistData.forEach((item, index) => {
+                                    item['hasDownLoad'] = false;
+                                    item['showHasDownLoad'] = true;
+                                    item['startDownLoad'] = false;
+                                    item['downLoadPercent'] = 0;
+                                    listIds.push(item.Id);
+                                })
+
+                                //获取已下载的数据
+                              if(localStorage.getItem('userId') && localStorage.getItem('userId') !== '') {
+                                // var hasDownLoadedContent = GetDownLoadedResources(listIds.join(','));
+                                //     hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+
+                                // hasDownLoadedContent.forEach((getItem,getIndex)=>{
+                                //    this.maplistData.forEach((bookItem,bookIndex)=>{
+                                //        if(getItem.ResourceId == bookItem.Id) {
+                                //            bookItem['hasDownLoad'] = true;
+                                //            bookItem['nativeUrl'] = getItem.FilePath;
+                                //            bookItem['downLoadPercent'] = 100;
+                                //        }
+                                //    })
+                                // })
+
+
+                                GetDownLoadedResources(listIds.join(','),localStorage.getItem('userId'),(hasDownLoadedContent)=>{
+                                      hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+                                      if(hasDownLoadedContent.length == 0) return; 
+
+                                      hasDownLoadedContent.forEach((getItem,getIndex)=>{
+                                         this.maplistData.forEach((bookItem,bookIndex)=>{
+                                               if(getItem.ResourceId == bookItem.Id) {
+                                                   bookItem['hasDownLoad'] = true;
+                                                   bookItem['nativeUrl'] = getItem.FilePath;
+                                                   bookItem['downLoadPercent'] = 100;
+                                                   this.$set(this.maplistData,bookIndex,bookItem);
+                                               }
+                                           })
+                                        })
+                                   })
+                              }
+
+
+                            }
+                        }else {
+                            ShowMessage('出现未知错误，请关闭重试！');
+                        }
+                    });
+
+
+                }
+          },
+          
+          //如果从书签位置过来的，就跳转到书签的位置
+          flexToMarkPos() {
+             if(!localStorage.getItem('notePosition') || localStorage.getItem('notePosition') == '') return;
+             
+             var noteData =  JSON.parse(localStorage.getItem('notePosition'));
+             
+          },
+
+          //清除文内检索数据
+          clearCurBookSearchData() {
+             var formId = GetFormId();
+
+             if(localStorage.getItem('searchArr')) {
+                var searchArr = JSON.parse(localStorage.getItem('searchArr'));
+
+                searchArr.forEach((item,index)=>{
+                   if(item.formId == formId) {
+                      searchArr.splice(index,1);
+                   }
+                })
+
+                localStorage.setItem('searchArr',JSON.stringify(searchArr));
+             }           
+          }, 
+
+          //控制右键菜单不让他跑
+          openOrCloseContextMenu(isopen) {
+                var listOfcontextmenu = document.getElementsByClassName('context-menu');
+
+                for(var i = 0 ; i < listOfcontextmenu.length ; i ++) {
+                    if(isopen) {
+                       listOfcontextmenu[i].style.display = 'block';
+                    }else {
+                       listOfcontextmenu[i].style.display = 'none';
+                    }
+
+                }
+            }   
+        },
+        created() {
+            // setTimeout(()=>{
+                if(env == 'prod') {
+                    var sectionData = GetArgument(); 
+                    // 'sectionId='+sectionid+'&secret='+item.secret+'&bookSrc='+item.nativeUrl+'&parentId='+item.ParentId
+                    this.sectionid = sectionData.slice(sectionData.indexOf('=')+1,sectionData.indexOf('&'));
+                    this.bookSecret = sectionData.slice(sectionData.indexOf('&')+8,sectionData.indexOf('&bookSrc'));
+                    this.nativeUrl = sectionData.slice(sectionData.indexOf('&bookSrc')+9,sectionData.lastIndexOf('&'));
+                    this.parentId = sectionData.slice(sectionData.lastIndexOf('=')+1);  
+
+                    this.formId = GetFormId();
+                    
+                    //清理文内检索数据
+                    this.clearCurBookSearchData();
+
+                }else if(env == 'dev') {
+                    this.sectionid = 25078;
+                    localStorage.removeItem('searchKeyword');
+                }
+            // },500)
+        },
+        mounted() {
+            // ShowDevTools();
+            //下面这个定时器是为了解决一进入窗口样式错乱的bug
+            setTimeout(()=>{
+                var imgNode = document.createElement('img');
+                imgNode.setAttribute('src', './images/loading.gif');
+                document.getElementById('loadMenban').appendChild(imgNode)
+             },100)
+            setTimeout(()=>{
+                document.getElementById('loadMenban').parentNode.removeChild(document.getElementById('loadMenban'));
+             },2000)
+
+            //防止页面没刷新，用户在下载中心删除了地图，再点这个地图报错，需要再次验证是否有本地文件
+            GetDownLoadedResources(this.sectionid+'',localStorage.getItem('userId'),(hasDownLoadedContent)=>{
+
+              hasDownLoadedContent = JSON.parse(hasDownLoadedContent);
+
+              if(hasDownLoadedContent.length == 0) {
+                 //此时被用户删除了这个文件，重新去下载
+                    ShowMessage('该文件可能已损坏或被删除,请重新下载！');
+                    CloseForm();
+               }else {
+
+                    var a = ReadBook(this.nativeUrl,this.bookSecret);
+                    this.sectionLibList = JSON.parse(a);
+                    this.iframeSrc = this.sectionLibList[0].Src;
+
+                    var _this = this;
+                  
+                    //获取相关地图
+                    this.getCurSectionMapData();    
+                    //获取章节列表
+                    this.getBookSectionList(this.parentId);   
+                    //获取文件其他信息，如文件id
+                    this.getCurSectionOtherInfo();
+                    //获取是否已经收藏
+                    this.gethasCollect(); 
+
+                    //初始化窗口
+                    this.setWindow();
+
+                    //实例化一个消息盒子
+                    this.message = new Message();
+                    
+
+                    document.oncontextmenu = function(e) {
+                        e.preventDefault();
+                    }
+                    
+                    var _this = this;
+                    document.onkeydown= function(e) {
+                        _this.changePageByKeyDown(e)
+                    }
+
+                    document.addEventListener('mousemove', function(e) {
+                        _this.showExchange(e);
+                    }, false); 
+
+                    window.onresize = () => {
+                        this.setWindow();
+                        this.togglePageCol(-1);
+                        this.getSectionTop();
+                        this.setIframeReadingSectionName();
+                        this.setScreenScroll(this.bookIframeWindow.document.body.scrollLeft, 100);
+                    }
+               }
+            }); 
+
+
+
+        },
+
+        watch:{
+            'winWidth':function(nv,ov) {
+                this.setIframeImgWithWindow(nv,ov);
+            },
+            'winHeight':function(nv,ov) {
+                this.setIframeImgWithWindow(nv,ov);
+            }
+        }
+    })
+    </script>
+    <script>
+       document.getElementById('bookContIframe').addEventListener('load', function() {
+          iframeOnload(document.getElementById('bookContIframe'));
+       },false)
+
+       document.addEventListener('click', ()=>{
+         CloseMenueStrip();
+       }, false)
+
+
+    //----------------------------------------------------------------下面是暴露给winform使用的方法--------------------------------------
+    //关闭程序清除用户数据
+    function clearLocalStorage(type) {
+        if(type == 1) {
+            localStorage.removeItem('userId');
+        }else if(type == -1) {
+            localStorage.removeItem('searchArr');
+        } 
+    }
+
+    // 打开目录或地图列表
+    function openLibCate(type) {
+        // 0 - 目录  1 - 地图列表
+        closeAllDialog();
+        $vm.openLibCate(type);
+    }
+
+    //设置本文对应的文内搜索内容
+    function setActiveOptions(isSearching) {
+
+         if(!isSearching) {
+
+           //清理文内检索数据
+           $vm.clearCurBookSearchData();
+
+           //初始化上次搜索内容的样式
+             var listOfSearchSpan = $($vm.$data.bookIframeWindow.document.body).find('.search-content');
+             $(listOfSearchSpan).each((index,item)=>{
+                 var nodeParent = $(item).parent();
+                 var nodeText = $(nodeParent).text();
+                 $(item).remove();
+                 $(nodeParent).text(nodeText);
+             })
+
+         }
+    }
+
+    // 改变背景色
+    function setBgColor(color) {
+        closeAllDialog();
+        $vm.closeLibOper();
+        $vm.setBgColor(color);
+    }
+
+    // 改变字体大小
+    function setFontSize(type) {
+        closeAllDialog();
+        $vm.closeLibOper();
+        $vm.setFontSize(type)
+            // type = -1 --缩小  1 -- 放大
+    }
+
+    // 单双栏切换
+    function togglePageCol() {
+        $vm.togglePageCol();
+        $vm.closeLibOper();
+    }
+
+    //上一章、下一章
+    function changeIframeSrc(type) {
+        closeAllDialog();
+        $vm.closeLibOper();
+        if(type == -1) {
+            //上一章
+            if($vm.$data.curSectionIndex == 0) {
+               $vm.$data.message.showMessage('warming','已经是第一章！'); 
+               return;
+            }
+
+            $vm.changeIframeSrc('', $vm.$data.curSectionIndex - 1);
+            return;
+        }
+
+        if(type == 1) {
+            if($vm.$data.curSectionIndex == $vm.$data.tableofSections.length - 1) {
+               $vm.$data.message.showMessage('warming','已经是最后一章！');  
+               return;
+            }
+
+            $vm.changeIframeSrc('', $vm.$data.curSectionIndex + 1);
+            return;
+        }
+        
+    }
+
+    //页码
+    function togglePageNum() {
+        closeAllDialog();
+        $vm.closeLibOper();
+        if ($vm.$data.pageNumShow) {
+            $vm.$data.message.showMessage('info','已关闭页码！');
+        } else {
+            $vm.$data.message.showMessage('info','已开启页码！');
+        }
+        $vm.togglePageNum();
+    }
+    
+    //添加书签
+    function addMark() {
+        closeAllDialog();
+        $vm.closeLibOper();
+        // if(!$vm.$data.canIaddNote) {
+        //     $vm.$data.message.showMessage('info','请稍等，正在读取书签信息！');
+        //     return;
+        // };
+        $vm.addMark();
+    }
+
+    //添加收藏
+    function addCollect() {
+        closeAllDialog();
+        $vm.closeLibOper();
+        $vm.addCollect();
+    } 
+
+    
+    //文内检索
+    function bookSearch() {
+        closeAllDialog();
+        $vm.closeLibOper();
+        $vm.openBookSearch() 
+    }
+
+    //添加笔记
+    function addNote() {
+        closeAllDialog();
+        $vm.closeLibOper();
+        $vm.openNoteWindow() 
+    }
+
+    //失焦后再次聚焦验证收藏按钮
+    function volidCollected() {
+        //检查收藏
+        $vm.gethasCollect();
+        //检查书签
+        $vm.setMarkByArea();
+        
+        //检查书签
+        if($vm.$data.pageNumShow) {
+            ChangeFavoriteIcon(true, '图文',3);
+        }else {
+            ChangeFavoriteIcon(false, '图文',3);
+        }
+    }
+
+    //文内检索时，文内检索窗口通知阅读窗口发生位置变化
+    function resetPosByBookSearch(pos) {
+        //如果只是index发生变化
+        var _this = $vm;
+        var curPos = parseInt(pos);
+        
+         $(_this.$data.bookIframeWindow.document.body).children().each((index,citem)=>{
+             // if(tags.indexOf($(item).get(0).nodeName.toLowerCase()) !== -1) {
+                 var fontNum = 0;
+                 var nextFontNum = 0;
+                 //计算出这个节点之前的字数和
+                 $(citem).prevAll().each((nindex, nitem)=>{
+                    fontNum += $(nitem).text().length;
+                 })
+
+                 $(citem).next().prevAll().each((nindex, nitem)=>{
+                   nextFontNum += $(nitem).text().length;
+                 });
+
+                 
+                 if((curPos >= fontNum && curPos < nextFontNum)) {
+                    //滚动到这个位置
+                    _this.$data.countLeft =  $(citem).next().offset().left;
+                    _this.$data.bookIframeWindow.document.body.scrollLeft = _this.$data.countLeft;
+                 }
+             // }
+         })
+
+    }
+
+    //每次切换iframe的src执行页面初始化渲染
+    function init(iframeEle) {
+        var _this = $vm;
+
+        _this.$data.bookIframeWindow = iframeEle.contentWindow;
+        _this.$data.countLeft = 0;
+        _this.togglePageCol(-1);
+        _this.setFontSize();
+
+        var otherBg = GetBookBackGroundColor();
+        _this.setBgColor(otherBg);
+
+        _this.togglePageNum(-1);
+        _this.getSectionTop();
+        _this.setIframeReadingSectionName();
+        _this.flexToMarkPos();
+        _this.setIframeImg();
+        _this.$data.bookIframeWindow.addEventListener('scroll', _this.setIframeReadingSectionName, false);
+        setTimeout(()=>{
+            _this.getMarkData();
+            _this.scrollToPosByNote();
+            //清理文内检索数据
+            _this.clearCurBookSearchData();
+            
+        }, 500)
+    }
+
+    // //iframe 的 onload事件
+    function iframeOnload(iframeEle) {
+        closeAllDialog();
+        //获取iframe里的onload事件 
+        //设置段落样式
+        var _this = $vm;
+        
+        $(iframeEle.contentWindow.document.body).css({
+            margin:'0 auto',
+            letterSpacing:'1px',
+            overflow:'hidden',
+            width:_this.$data.winWidth +'px',
+            height:_this.$data.winHeight-10 +'px'
+        })
+
+        $(iframeEle.contentWindow.document.body).children('p').css('line-height','200%');
+
+        //初始化页面
+        init(iframeEle);
+        //左侧目录栏收起
+        $(iframeEle.contentWindow.document.body).on('click', function(e) {
+            _this.$data.conMenuShow = false;
+            CloseMenueStrip();
+            if(_this.$data.libLeft >= -280) {
+               var type = _this.libOrMap?0:1;
+               // 0 - 当前为图书状态  1- 当前为地图状态
+               _this.openLibCate(type);
+            }
+        })
+        
+
+        //页码不跳转，并且备注跳转位置
+        $(iframeEle.contentWindow.document.body).on('click','a', function(e) {
+            e.preventDefault();
+
+            if($(this).attr('href').indexOf('http://') !== -1) return;
+
+            //此时点击的是备注，提取其对应锚点信息
+            var href = $(this).attr('href');
+                href = href.slice(1);
+            
+
+            //找到对应的跳转目标锚点
+            var listOFIframeNodes = $(iframeEle.contentWindow.document).find('a[id="'+href+'"]');
+            // 获取目标锚点的left
+            var scrollLeft = listOFIframeNodes[0].offsetLeft;
+
+
+             if (_this.$data.scrollTimer)
+                clearTimeout(_this.$data.scrollTimer)
+
+             _this.$data.scrollTimer = setTimeout(() => {
+                // 获取目标a标签在左半屏还是右半屏
+                var aimAtLeftOrRightInScreen = scrollLeft % (_this.$data.winWidth * 0.95);
+
+                //获取翻滚了多少页
+                var scrollLeftCount = (scrollLeft - scrollLeft % (_this.$data.winWidth * 0.95)) / (_this.$data.winWidth * 0.95);
+                    
+                    //这里还需要判断是从前往后跳还是从后往前跳
+                    if($(listOFIframeNodes).parent().hasClass('footnote')) {
+                        //这个时候是从前往后跳
+                        if(!_this.$data.isTwoCol) {
+                           //因为存在正文跳注释少一页的bug，所以需要判断跳转后，本页中是否有这个元素，没有就多跳一页
+                           _this.$data.countLeft = (scrollLeftCount) * (_this.$data.winWidth * 0.95);
+
+                           //这里获取当前屏幕下的所有段落标签
+                           
+                           _this.$nextTick(function() {
+                               var eleMin = _this.getScreenStartEle()[0];
+                               var eleMax = _this.getScreenEndEle()[0];
+                              
+                               //利用jquery判断这两个节点之间的所有节点，是否含有要查询的节点
+
+                               var nodesArr = $(eleMin).nextUntil($(eleMax).next());
+                   
+                               var arr = [];
+                                   arr.push(eleMin);
+
+                               for(var i = 0 ; i < nodesArr.length ; i ++) {
+                                   arr.push(nodesArr[i]);
+                               }
+                 
+                            
+                               var count = 0;
+
+                               for(var i = 0 ; i < arr.length ; i ++) {
+                                   if($(arr[i]).find('a[id="'+href+'"]').length !== 0) {
+                                      count ++;
+                                   }
+                               }
+
+                               if(count === 0) {
+                                 _this.$data.countLeft = (scrollLeftCount + 1) * (_this.$data.winWidth * 0.95);
+                                 iframeEle.contentWindow.document.body.scrollLeft = _this.$data.countLeft;
+                               }
+                           })
+
+
+
+                        }else {
+                           if(aimAtLeftOrRightInScreen/_this.$data.winWidth * 0.95 <= 0.5) {
+                            //如果是左半屏    
+                               _this.$data.countLeft = (scrollLeftCount ) * (_this.$data.winWidth * 0.95);
+                            }else {
+                            //如果是右半屏
+                               _this.$data.countLeft = (scrollLeftCount +1) * (_this.$data.winWidth * 0.95);
+                            } 
+                        }
+                    }else {
+                        //这个时候是从后往前
+                        _this.$data.countLeft = scrollLeftCount  * (_this.$data.winWidth * 0.95);
+                    }
+
+                iframeEle.contentWindow.document.body.scrollLeft = _this.$data.countLeft;
+                // _this.flexMove1(iframeEle.contentWindow.document.body, _this.$data.countLeft)
+
+                
+            }, 100)
+
+
+
+        })
+
+        
+        //右键
+        $(iframeEle.contentWindow.document).on('contextmenu', function(e) {
+            e.preventDefault();
+            _this.$data.conMenuShow = true;
+            _this.openOrCloseContextMenu(true);
+            openContextMenu(e)
+        })
+
+
+        //查看文中的图片
+        $(iframeEle.contentWindow.document.body).on('click', 'img', function(e) {
+            if(e.target.src.indexOf('/static/images') !== -1) return;
+            if (env == "dev") {
+                window.location.href = ymUrl + '/imgView?imgSrc=' + e.target.src;
+            } else if (env == "prod") {
+                if(_this.$data.canIaddNote) {
+                    localStorage.setItem('imgSrcInBook',e.target.src);
+                    // SaveArgument('imgSrc='+e.target.src)
+                    loadForm('/index.html#/imgView','图片详情','文内图片',false);
+                }
+            }
+        })
+
+        //右键操作,打开menu
+        function openContextMenu(e, type) {
+            e.preventDefault();
+            if (type == -1) return;
+
+            _this.$data.conMenuLeft = e.pageX - _this.$data.bookIframeWindow.document.body.scrollLeft + 0.05 * _this.$data.winWidth;
+            _this.$data.conMenuTop = e.pageY;
+            _this.$data.conMenuShow = true;
+
+            // 先将所有按钮止于不可用
+            _this.$data.menuListDisable = {
+                copy: false,
+                collect: false,
+                addMark: false,
+                bookSearch: true,
+                createNote: true,
+            }
+            //复制按钮
+            if(_this.$data.bookIframeWindow.document.getSelection().toString() !== '') {
+                _this.$data.menuListDisable.copy = true;
+            }
+
+            // 判断收藏按钮
+            if(!_this.$data.hasCollect) {
+               _this.$data.menuListDisable.collect = true;   
+            }
+            
+
+            //判断书签
+            _this.$data.menuListDisable.addMark = !_this.$data.isMarkImgShow;
+        }
+
+        
+        //重定义复制事件
+        $(_this.$data.bookIframeWindow).on('copy',function(e) {
+            e.preventDefault();
+            _this.closeMenuAndDo(e,'copy');
+        })
+
+
+        //滚动翻页
+        $(iframeEle.contentWindow).on('mousewheel', function(e) {
+                var type = null;
+                if (e.originalEvent.wheelDelta < 0 || e.originalEvent.detail > 0) {
+                    type = 1;
+                } else {
+                    type = -1;
+                }
+                
+
+               _this.openOrCloseContextMenu(false);
+                //获取向右还是向左 1- 向左 -1 -向右
+               _this.pageExchange(type);
+
+        })
+
+        //键盘左右键翻页
+        $(iframeEle.contentWindow).on('keydown', function(e) {
+                // e.preventDefault();
+                var type = null;
+                if (e.keyCode == 37) {
+                    type = -1;
+                } else if(e.keyCode == 39){
+                    type = 1;
+                }
+                
+               _this.openOrCloseContextMenu(false);
+                //获取向右还是向左 1- 向左 -1 -向右
+               _this.pageExchange(type);
+        })
+
+        //隐藏左右翻页
+        $(iframeEle.contentWindow).on('mousemove', function(e) {
+                _this.$data.bodyMouseenter = false;
+        })
+
+        $(iframeEle.contentWindow.document.body).on('dragstart',function(e) {
+                e.preventDefault();
+        })
+
+        //文内检索功能
+        setSearchResult();
+        
+
+
+        var prevSearchKeyword = '';
+        var prevIndex = 0;
+        var prevActiveIndex = 'xxx';
+
+        function setSearchResult() {
+            //轮询搜索项是否改变
+            
+                setInterval(()=>{
+                    console.log(localStorage.getItem('searchArr'))
+                    if(localStorage.getItem('searchArr')) {
+                        var searchArr = JSON.parse(localStorage.getItem('searchArr'));
+
+                        if(searchArr.length !== 0) {
+                          searchArr.forEach((item,index)=>{
+                            
+                              if(item.formId == $vm.$data.formId && item.sectionId == $vm.$data.sectionid ) {
+
+                                 if(item.searchKeyword !== '') {
+
+                                    if(item.searchKeyword !==  prevSearchKeyword) {
+                                      bookSearchResult(item.searchKeyword);
+
+                                      prevSearchKeyword = item.searchKeyword;
+                                    }
+
+                                    //如果只是index发生变化
+                                    if(parseInt(item.searchIndex) != prevIndex) {
+
+                                        var curPos = parseInt(item.searchIndex);
+
+                                        var tags = ['h1','h2','h3','h4','h5','h6','p','div','br'];
+                                        var isCircle = true;
+                                        
+                                         $(iframeEle.contentWindow.document.body).children().each((index,citem)=>{
+                                             // if(tags.indexOf($(item).get(0).nodeName.toLowerCase()) !== -1) {
+                                                 var fontNum = 0;
+                                                 var nextFontNum = 0;
+                                                 //计算出这个节点之前的字数和
+                                                 $(citem).prevAll().each((nindex, nitem)=>{
+                                                    fontNum += $(nitem).text().length;
+                                                 })
+
+                                                 $(citem).next().prevAll().each((nindex, nitem)=>{
+                                                   nextFontNum += $(nitem).text().length;
+                                                 });
+
+                                                 
+                                                 if((curPos >= fontNum && curPos < nextFontNum)) {
+                                                    //滚动到这个位置
+                                                    _this.$data.countLeft =  $(citem).next().offset().left;
+                                                    iframeEle.contentWindow.document.body.scrollLeft = _this.$data.countLeft;
+
+                                                    
+                                                 }
+                                             // }
+                                         })
+
+                                        prevIndex = curPos;
+                                   }
+
+                                   //如果点击的那一条发生了变化
+                                   // if(parseInt(item.clickIndex) !== prevActiveIndex) {
+                                      addCurSearchkey(parseInt(item.clickIndex));
+                                      prevActiveIndex = parseInt(item.clickIndex);
+                                   // }
+
+                                   return;
+                                }
+
+                                if(item.searchKeyword === '') {
+                                    if(item.searchKeyword ==  prevSearchKeyword) return;
+                   
+                                    prevSearchKeyword = item.searchKeyword;
+                                    //初始化上次搜索内容的样式
+                                     var listOfSearchSpan = $(iframeEle.contentWindow.document.body).find('.search-content');
+                                     $(listOfSearchSpan).each((index,item)=>{
+                                         var nodeParent = $(item).parent();
+                                         var nodeText = $(nodeParent).text();
+                                         $(item).remove();
+                                         $(nodeParent).text(nodeText);
+                                     })
+
+                                }
+                              }
+                          })
+                        }  
+                    }
+                    
+
+
+                }, 500)
+        }
+
+
+        //文内检索结果设置
+        function  bookSearchResult(searchKeyword) {
+             //初始化上次搜索内容的样式
+             var listOfSearchSpan = $(iframeEle.contentWindow.document.body).find('.search-content');
+             $(listOfSearchSpan).each((index,item)=>{
+                 var nodeParent = $(item).parent();
+                 var nodeText = $(nodeParent).text();
+                 $(item).remove();
+                 $(nodeParent).text(nodeText);
+             })
+
+             if(!searchKeyword) return ;
+                
+            //这时候依然有搜索项
+            changeBookResult(searchKeyword);
+
+        }
+
+        // 搜索
+         function changeBookResult(searchKeyword) {
+             var reg = new RegExp(searchKeyword,'g');
+                
+                //搜索的字段包含[ ,不包含 <
+                if(searchKeyword.indexOf('\[') !== -1 || searchKeyword.indexOf('<') !== -1) {
+                   //为了保证跨页码和注释标签能搜索到，需要把匹配的段落全部整合成text不带样式
+                    $(iframeEle.contentWindow.document.body).children().each((index,item)=>{
+                        if(reg.test($(item).text())) {
+                           $(item).text($(item).text().replace(reg, '&lt;span style="background:yellow" class="search-content"&gt;' + searchKeyword.replace(/\\/g,'') + '&lt;/span&gt;'));
+                           
+                           // if($(item).text().indexOf('&lt;') !== -1) {
+                           var tmp = $(item).text().replace(/&lt;/g,'<');
+                               tmp = tmp.replace(/&gt;/g,'>');
+                               
+                               if($(item).hasClass('footnote')) {
+                                  $('<p class="footnote">'+tmp+'</p>').insertAfter($(item));
+                               }else {
+                                  $('<p style="line-height: 200%; font-size: 16px;">'+tmp+'</p>').insertAfter($(item));
+                               }
+                               $(item).remove();
+                           // }
+
+                        }
+                    })
+
+                }else {
+                    var content = $(iframeEle.contentWindow.document.body).html();
+                        content = content.replace(reg, '<span style="background:yellow" class="search-content">' + searchKeyword + '</span>');
+
+                     $(iframeEle.contentWindow.document.body).html(content);
+                }
+
+         }
+         
+         /**
+          * [addCurSearchkey 添加当前项不同的颜色]
+          * @Author   罗文
+          * @DateTime 2017-09-29
+          */
+         function addCurSearchkey(clickIndex) {
+             $(iframeEle.contentWindow.document.body).find('.search-content').each((index,item)=>{
+                if($(item).hasClass('search-active')) {
+                   $(item).removeClass('search-active');
+                   $(item).css('border-bottom','none');
+                }
+
+                if(clickIndex == index) {
+                    console.log('in');
+                   $(item).addClass('search-active');
+                   $(item).css('border-bottom','5px solid red');
+                }
+             })
+         }
+
+    }
+
+
+    
+    // $('#bookContIframe').get(0).contentWindow.onload = function() {
+    //     search('文帝')
+    // }
+
+    // search('文帝')
+    // ----------------------------------------------------------------下面是多个模态框-------------------------------------------------------
+   
+    function closeAllDialog() {
+        $("#affeected").modal("hide");
+        $("#equipement").modal("hide");
+    }
+
+    //展示模态框:涉及地区等
+    openModal = function(index) {
+        $vm.closeLibOper();
+        $("#equipement").modal("hide");
+       // ShowDevTools()
+        if (index == 1) { //展示人物
+            $("#activeTitle").find('h4').eq(0).show().siblings('h4').hide();
+        } else if (index == 2) { //展示事件
+            $("#activeTitle").find('h4').eq(1).show().siblings('h4').hide();
+        } else if (index == 3) { //展示地区
+            $("#activeTitle").find('h4').eq(2).show().siblings('h4').hide();
+        } else if (index == 4) { //展示地图
+            $("#activeTitle").find('h4').eq(3).show().siblings('h4').hide();
+        }
+
+        if(env=="dev"){
+            var sectionid = location.href.split('sectionid=')[1].split("&")[0];
+             $.ajax({
+                url: baseUrl + "/resource/explicitwordlist",
+                methods: "GET",
+                data: {
+                    type: index,
+                    resourceid: sectionid
+                },
+                success: function(res) {
+                     $("#affeected").modal("show").css("paddingTop","150px")
+                    res = eval('(' + res + ')');
+                    renderData(res.Data, index)
+                }
+            })
+         }else if(env=="prod"){
+            // var winResult = ApiTransfer('get','/resource/explicitwordlist',"type="+index+"&&resourceid="+$vm.$data.sectionid);
+            //  $("#affeected").modal("show").css("paddingTop","150px")
+            // winResult=JSON.parse(winResult)
+            // if(winResult.Success){
+            //     renderData(winResult.Data,index)
+            // }
+
+            
+            var data = {
+                type:index,
+                resourceid:$vm.$data.sectionid
+            }
+            //下面是配合winform异步获取数据
+            ApiTransfer('get','/resource/explicitwordlist',JSON.stringify(data),(winResult)=>{
+                $("#affeected").modal("show").css("paddingTop","150px")
+                winResult=JSON.parse(winResult)
+                if(winResult.Success){
+                    renderData(winResult.Data,index)
+                }else {
+                   ShowMessage(winResult.Description)
+                }
+            });
+         }
+       
+    }
+
+    //渲染涉及系列的内容
+    function renderData(data, type) {
+        var innerHtml = "";
+        $("#modalBody").html('');
+
+        if (data == null) {
+            innerHtml += "<div class='noInnerHtml'>暂无数据</div>"
+        } else {
+            if (data.length == 0) {
+                innerHtml += "<div class='noInnerHtml'>暂无数据</div>"
+            } else {
+                if (type == 4) {
+                    innerHtml = "<div class='div'>";
+                    if(data.length>8){
+                         $("#affeected").css("paddingTop","20px;")
+                    }else{
+                         $("#affeected").css("paddingTop","150px")
+                    }
+                    for (var i = 0; i < data.length; i++) {
+                        var aStr = `<div class="down-load-modal">
+                                    
+                                   </div>
+                                   <div class="down-load-modal" style="background: transparent;opacity: 1">
+                                        <img src="./images/下载大.png" alt="" class="downImg" style="width: 64px;height: 64px">
+                                        <canvas class="canvasName" width="64" height="64"></canvas>
+                                   </div>`;
+
+                        innerHtml += '<div class="div1"  onclick="goChapterList(' + data[i].Id + ',4,\"'+data[i].Title+'\")"><img src="' + data[i].CoverUrl + '"><p>' + data[i].Title + '</p>'+aStr+'</div>'
+                    }
+                    innerHtml += "</div>";
+                }else if(type==3){
+                        for (var i = 0; i < data.length; i++) {
+                           innerHtml += "<div class='span10' onclick='goChapterList(" + data[i].Id + "," + type+ ",\""+data[i].Title + "\")'>" + data[i].Title + "</div>"
+                        }
+                } else {
+                     if(data.length>20){
+                         $("#affeected").css("paddingTop","20px;")
+                    }else{
+                         $("#affeected").css("paddingTop","150px")
+                    }
+                    for (var i = 0; i < data.length; i++) {
+                        var abstract = data[i].Abstracts == null ? '暂无' : data[i].Abstracts
+                        innerHtml += "<div class='span1'><span  onclick='goChapterList(" + data[i].Id + "," + type + ",\""+data[i].Title+"\")'>" + data[i].Title + "</span><span class='showBox2' style='display:none;'><span class='showBox1'>" + abstract + "</span></span></div>"
+                    }
+                }
+
+            }
+        }
+
+        $("#modalBody").html(innerHtml);
+
+        if(type == 4) {
+           $('.downImg').show();
+           $('.canvasName').hide();
+           $('#modalBody').on('click','.down-load-modal img',function() {
+                var index = $(this).parent().parent().index();
+                $(this).hide();
+                $(this).siblings('canvas').show();
+                drawProgress($(this).siblings('canvas').get(0),data[index].Id)
+           })
+        }
+
+    }
+
+    //点击跳转 相关章节
+    goChapterList = function(id, type,title) {
+        $vm.closeLibOper();
+        closeAllDialog();
+        if (type == 1) { //人物
+            if (env == "dev") {
+                window.location.href = ymUrl + '/personDetail?personId=' + id;
+            } else if (env == "prod") {
+                //跳转到详情
+                SaveArgument('personId='+id)
+                loadForm('/index.html#/personDetail','详情',title,true)
+                
+                //跳转到章节列表
+                // SaveArgument('relatedpersonids='+id)
+                // loadForm('/index.html#/sectionlist','资源','章节列表')
+            }
+        } else if (type == 2) { //事件
+            if (env == "dev") {
+                window.location.href = ymUrl + '/eventDetail?eventId=' + id;
+            } else if (env == "prod") {
+                //跳转到详情
+                SaveArgument('eventId='+id)
+                loadForm('/index.html#/eventDetail','详情',title,true)
+                
+                // 跳转到章节列表
+            //     SaveArgument('relatedeventids='+id)
+            //     loadForm('/index.html#/sectionlist','资源','章节列表')
+            }
+        } else if (type == 3) { //地区
+            if (env == "dev") {
+                window.location.href = ymUrl + '/sectionlist?relatedregionids=' + id;
+            } else if (env == "prod") {
+                //跳转到详情
+                // SaveArgument('relatedregionids='+id)
+                // loadForm('/index.html#/sectionlist','资源','章节列表')
+                
+                //跳转到章节列表
+                SaveArgument('relatedregionids='+id)
+                loadForm('/index.html#/sectionlist','资源',title,true)
+            }
+        } else if (type == 4) { //地图
+
+        }
+
+         $("#affeected").modal('hide');
+    }
+
+    //右边的详情框
+    $("#modalBody").on("mouseenter", '.span1', function() {
+        var dex = $("#modalBody").find('.span1').index($(this));
+        var myspan = $("#modalBody").find('.span1').eq(dex).children('span').children('span');
+        if (myspan.html() == "暂无") {
+            $(this).children('span').css("width", '100px')
+        } else {
+            $(this).children('span').css("width", '300px')
+        }
+        $("#modalBody").find('.span1').eq(dex).children('span').show();
+    }).on("mouseleave", '.span1', function() {
+        var dex = $("#modalBody").find('.span1').index($(this));
+        $("#modalBody").find('.span1').eq(dex).children('.showBox2').hide();
+    })
+
+     // 设备切换
+    showEquipement = function(){
+        $vm.closeLibOper();
+        $("#affeected").modal("hide");
+        $("#equipement").modal("show").css("marginTop","150px");
+        
+        //获取用户自身的设备名和设备列表
+        var deviceInfo = JSON.parse(GetDeviceInfo());
+        $('#myEqu').text(deviceInfo.DeviceTitle);
+        //获取列表
+        
+        //下面是配合winform异步获取数据
+        //userid:localStorage.getItem('userId')
+        ApiTransfer('get','/device/list',JSON.stringify({userid:localStorage.getItem('userId')}),(winResult)=>{
+            winResult=JSON.parse(winResult)
+            if(winResult.Success){     
+                var itemList = winResult.Data.ItemList;
+                if(itemList.length > 15) $("#equipement").modal("show").css("marginTop","70px");
+
+                var listStr = '';
+                itemList.forEach((item,index)=>{
+                   var itemStr = JSON.stringify(item);
+                   if(item.Title !== deviceInfo.DeviceTitle) {
+                      listStr += `<label><input type="radio" name="equipList" itemdata='${itemStr}'>${item.Title}</label>`;
+                   }
+                })
+                
+                $('#equipList').empty();
+                $('#equipList').append(listStr);
+            }else {
+               ShowMessage(winResult.Description)
+            }
+        });
+
+
+        
+  
+    }
+  
+    //设备切换事件
+    $('#changeEquip').on('click',function() {
+            // 获取到目标设备信息
+            if($('input:radio[name="equipList"]:checked').length == 0 ) {
+                var message = new Message(); 
+                message.showMessage('error','请选择切换的设备！');
+                return;
+            }; 
+
+            var deviceInfo = JSON.parse(GetDeviceInfo());
+            var clickDeviceData = JSON.parse($('input:radio[name="equipList"]:checked').attr('itemdata'));
+            
+            //要传入另一个设备的参数
+            
+            var data = {
+                resourceid:$vm.$data.sectionid,
+                fileid:$vm.$data.fileId,
+                position:0,
+                url:'',
+                sourcedeviceid:null,
+                targetdeviceid:clickDeviceData.Id,
+                tag:'',
+                state:1,
+                resourcetype:2,
+                userid:localStorage.getItem('userId'),
+            }
+
+
+
+            //获取资源的URL
+                ApiTransfer('get','/file/stream',JSON.stringify({
+                      fileid:data.fileid,
+                      isPC:true,
+                      userid:localStorage.getItem('userId')
+                  }),(winResult)=>{
+                    winResult=JSON.parse(winResult)
+                    data.url = winResult.Data
+                    data.sourcedeviceid = deviceInfo.DeviceId;
+
+                    //发送设备切换的数据
+                    changeDevice(data) 
+                    
+                });
+
+              $("#equipement").modal("hide");
+        })
+
+    //发送数据
+    function changeDevice(data) {
+        ApiTransfer('post','/umengpush/changewindow',JSON.stringify(data),(winResult)=>{
+            winResult = JSON.parse(winResult);
+
+            var message = new Message();
+            if(winResult.Code == 200) {
+              message.showMessage('success','切换成功');
+            }else {
+              message.showMessage('error',winResult.Description)
+            };
+        });
+    }
+
+
+    </script>
+</body>
+
+</html>
